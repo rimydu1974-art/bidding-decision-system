@@ -1,0 +1,203 @@
+import { AIProvider } from './types';
+import { AIOptions, AIResponse } from '@/types';
+import { OpenAICompatibleProvider } from './providers/openai-compatible';
+
+export class AIService {
+  private providers: Map<string, AIProvider> = new Map();
+  private defaultProvider: string;
+  private fallbackProviders: string[];
+
+  constructor() {
+    this.defaultProvider = process.env.AI_PROVIDER || 'deepseek';
+    this.fallbackProviders = (process.env.AI_FALLBACK_PROVIDERS || 'tongyi,zhipu').split(',');
+
+    this.registerProviders();
+  }
+
+  private registerProviders() {
+    // DeepSeek (OpenAI兼容)
+    if (process.env.DEEPSEEK_API_KEY) {
+      this.providers.set(
+        'deepseek',
+        new OpenAICompatibleProvider(
+          'deepseek',
+          'DeepSeek',
+          'https://api.deepseek.com',
+          process.env.DEEPSEEK_API_KEY,
+          process.env.DEEPSEEK_MODEL || 'deepseek-chat'
+        )
+      );
+    }
+
+    // 通义千问 (OpenAI兼容)
+    if (process.env.TONGYI_API_KEY) {
+      this.providers.set(
+        'tongyi',
+        new OpenAICompatibleProvider(
+          'tongyi',
+          '通义千问',
+          'https://dashscope.aliyuncs.com/api/v1',
+          process.env.TONGYI_API_KEY,
+          process.env.TONGYI_MODEL || 'qwen-max'
+        )
+      );
+    }
+
+    // 智谱AI (OpenAI兼容)
+    if (process.env.ZHIPU_API_KEY) {
+      this.providers.set(
+        'zhipu',
+        new OpenAICompatibleProvider(
+          'zhipu',
+          '智谱AI',
+          'https://open.bigmodel.cn/api/paas/v4',
+          process.env.ZHIPU_API_KEY,
+          process.env.ZHIPU_MODEL || 'glm-4-plus'
+        )
+      );
+    }
+
+    // 月之暗面Kimi (OpenAI兼容)
+    if (process.env.KIMI_API_KEY) {
+      this.providers.set(
+        'kimi',
+        new OpenAICompatibleProvider(
+          'kimi',
+          'Kimi',
+          'https://api.moonshot.cn',
+          process.env.KIMI_API_KEY,
+          process.env.KIMI_MODEL || 'moonshot-v1-128k'
+        )
+      );
+    }
+
+    // 零一万物 (OpenAI兼容)
+    if (process.env.YI_API_KEY) {
+      this.providers.set(
+        'yi',
+        new OpenAICompatibleProvider(
+          'yi',
+          '零一万物',
+          'https://api.lingyiwanwu.com',
+          process.env.YI_API_KEY,
+          process.env.YI_MODEL || 'yi-large'
+        )
+      );
+    }
+
+    // 讯飞星火 (OpenAI兼容)
+    if (process.env.SPARK_API_KEY) {
+      this.providers.set(
+        'spark',
+        new OpenAICompatibleProvider(
+          'spark',
+          '讯飞星火',
+          'https://spark-api-open.xf-yun.com',
+          process.env.SPARK_API_KEY,
+          process.env.SPARK_MODEL || 'generalv3.5'
+        )
+      );
+    }
+
+    // MiniMax (OpenAI兼容)
+    if (process.env.MINIMAX_API_KEY) {
+      this.providers.set(
+        'minimax',
+        new OpenAICompatibleProvider(
+          'minimax',
+          'MiniMax',
+          'https://api.minimax.chat',
+          process.env.MINIMAX_API_KEY,
+          process.env.MINIMAX_MODEL || 'abab6.5-chat'
+        )
+      );
+    }
+
+    // 腾讯混元 (OpenAI兼容)
+    if (process.env.HUNYUAN_API_KEY) {
+      this.providers.set(
+        'hunyuan',
+        new OpenAICompatibleProvider(
+          'hunyuan',
+          '腾讯混元',
+          'https://hunyuan.cloud.tencent.com',
+          process.env.HUNYUAN_API_KEY,
+          process.env.HUNYUAN_MODEL || 'hunyuan-pro'
+        )
+      );
+    }
+
+    // 字节豆包 (OpenAI兼容)
+    if (process.env.DOUBAO_API_KEY) {
+      this.providers.set(
+        'doubao',
+        new OpenAICompatibleProvider(
+          'doubao',
+          '字节豆包',
+          'https://ark.cn-beijing.volces.com',
+          process.env.DOUBAO_API_KEY,
+          process.env.DOUBAO_MODEL || 'doubao-pro-4k'
+        )
+      );
+    }
+  }
+
+  async analyze(
+    prompt: string,
+    providerName?: string,
+    options?: AIOptions
+  ): Promise<AIResponse> {
+    const targetProvider = providerName || this.defaultProvider;
+    const provider = this.providers.get(targetProvider);
+
+    if (provider) {
+      try {
+        return await provider.analyze(prompt, options);
+      } catch (error) {
+        console.error(`${targetProvider} failed:`, error);
+        return this.fallback(prompt, targetProvider, options);
+      }
+    }
+
+    return this.fallback(prompt, targetProvider, options);
+  }
+
+  private async fallback(
+    prompt: string,
+    excludeProvider: string,
+    options?: AIOptions
+  ): Promise<AIResponse> {
+    for (const fallbackName of this.fallbackProviders) {
+      if (fallbackName === excludeProvider) continue;
+
+      const provider = this.providers.get(fallbackName);
+      if (provider) {
+        try {
+          console.log(`Falling back to ${fallbackName}`);
+          return await provider.analyze(prompt, options);
+        } catch (error) {
+          console.error(`${fallbackName} fallback failed:`, error);
+        }
+      }
+    }
+
+    throw new Error('All AI providers failed');
+  }
+
+  getAvailableProviders(): string[] {
+    return Array.from(this.providers.keys());
+  }
+
+  getDefaultProvider(): string {
+    return this.defaultProvider;
+  }
+}
+
+let aiServiceInstance: AIService | null = null;
+
+export function getAIService(): AIService {
+  if (!aiServiceInstance) {
+    aiServiceInstance = new AIService();
+  }
+  return aiServiceInstance;
+}
