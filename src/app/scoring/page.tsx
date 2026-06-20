@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
   FileText,
@@ -15,6 +14,7 @@ import {
   AlertTriangle,
   XCircle,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface ScoringResult {
   criteria: string;
@@ -38,10 +38,10 @@ interface UploadedFile {
 }
 
 const FILE_CATEGORIES = [
+  { id: 'tender', name: '招标文件', description: '招标文件（用于提取评分标准）' },
   { id: 'qualification', name: '资质证明文件', description: '企业资质、证书、业绩等' },
   { id: 'price', name: '价格文件', description: '报价单、成本分析等' },
   { id: 'technical', name: '商务技术文件', description: '技术方案、实施方案等' },
-  { id: 'other', name: '其他文件', description: '其他相关文件' },
 ];
 
 export default function ScoringPage() {
@@ -50,7 +50,7 @@ export default function ScoringPage() {
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedCategory, setSelectedCategory] = useState('technical');
+  const [selectedCategory, setSelectedCategory] = useState('tender');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -65,7 +65,6 @@ export default function ScoringPage() {
     }
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
-    // 重置input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -76,14 +75,15 @@ export default function ScoringPage() {
   };
 
   const handleUpload = async () => {
-    if (uploadedFiles.length === 0) {
-      alert('请先上传投标文件');
+    // 检查是否上传了招标文件
+    const hasTender = uploadedFiles.some((f) => f.category === 'tender');
+    if (!hasTender) {
+      alert('请先上传招标文件（用于提取评分标准）');
       return;
     }
 
     setLoading(true);
     try {
-      // 上传所有文件
       const formData = new FormData();
       uploadedFiles.forEach((item, index) => {
         formData.append(`file_${index}`, item.file);
@@ -161,29 +161,29 @@ export default function ScoringPage() {
             {/* 说明 */}
             <Card>
               <CardHeader>
-                <CardTitle>评分预测说明</CardTitle>
+                <CardTitle>投标文件评分</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <FileText className="h-8 w-8 text-blue-600 mb-2" />
-                    <h3 className="font-semibold">多文件上传</h3>
+                    <h3 className="font-semibold">上传招标文件</h3>
                     <p className="text-sm text-gray-600">
-                      支持上传多份投标文件（资质、价格、技术方案等）
+                      上传招标文件，AI自动提取评分标准和权重
                     </p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
                     <Upload className="h-8 w-8 text-green-600 mb-2" />
-                    <h3 className="font-semibold">智能评分</h3>
+                    <h3 className="font-semibold">上传投标文件</h3>
                     <p className="text-sm text-gray-600">
-                      根据招标文件评分标准自动评分
+                      上传您的投标文件（资质、报价、技术方案等）
                     </p>
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg">
                     <FileText className="h-8 w-8 text-purple-600 mb-2" />
-                    <h3 className="font-semibold">改进建议</h3>
+                    <h3 className="font-semibold">智能评分</h3>
                     <p className="text-sm text-gray-600">
-                      针对薄弱环节提供具体改进建议
+                      AI根据评分标准自动评分，给出预测得分和改进建议
                     </p>
                   </div>
                 </div>
@@ -193,9 +193,14 @@ export default function ScoringPage() {
             {/* 上传区域 */}
             <Card>
               <CardHeader>
-                <CardTitle>上传投标文件</CardTitle>
+                <CardTitle>上传文件</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 提示 */}
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                  必须上传招标文件，AI将从中提取评分标准和权重
+                </div>
+
                 {/* 文件分类选择 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

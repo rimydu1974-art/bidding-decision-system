@@ -25,6 +25,7 @@ const DEFAULT_CRITERIA: ScoringCriteria[] = [
 ];
 
 const FILE_CATEGORIES: Record<string, string> = {
+  tender: '招标文件',
   qualification: '资质证明文件',
   price: '价格文件',
   technical: '商务技术文件',
@@ -77,14 +78,14 @@ export async function POST(request: NextRequest) {
       : allContent;
 
     // 第一步：从招标文件中提取评分标准
-    const extractPrompt = `你是一位资深的投标评审专家。请从以下招标文件中提取评分标准/评分细则。
+    const extractPrompt = `你是一位资深的投标评审专家。请从招标文件中提取评分标准/评分细则。
 
-## 招标文件内容
+## 文件内容
 ${truncatedContent}
 
 ## 要求
-请提取招标文件中的评分标准，包括：
-1. 评分维度名称
+请仔细阅读招标文件，找到评分标准部分，提取以下信息：
+1. 评分维度名称（如：技术方案、商务资质、报价等）
 2. 每个维度的满分分值
 3. 评分要点/评分细则
 
@@ -93,13 +94,16 @@ ${truncatedContent}
   "scoringCriteria": [
     {
       "name": "评分维度名称",
-      "maxScore": 该维度满分,
+      "maxScore": 该维度满分分值,
       "description": "评分要点描述"
     }
   ]
 }
 
-如果招标文件中没有明确的评分标准，请根据常见招标评分规则推断。
+重要：
+- 请从招标文件中找到真实的评分标准
+- 如果文件中有"评分办法"、"评分标准"、"评分细则"等章节，请重点关注
+- 每个维度的maxScore是该维度的满分分值，不是百分比
 
 请返回JSON：`;
 
