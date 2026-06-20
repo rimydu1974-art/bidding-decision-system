@@ -189,10 +189,10 @@ export default function Home() {
                     <History className="h-5 w-5" />
                     <span>历史记录</span>
                   </button>
-                  <div className="flex items-center space-x-2 text-gray-600">
+                  <Link href="/user-center" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
                     <User className="h-5 w-5" />
                     <span>{user.name || user.email}</span>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-1 text-gray-500 hover:text-red-600"

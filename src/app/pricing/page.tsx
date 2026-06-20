@@ -20,8 +20,16 @@ interface PricingPlan {
 
 const PLAN_ICONS: Record<string, React.ReactNode> = {
   free: <Star className="h-6 w-6" />,
+  single: <CreditCard className="h-6 w-6" />,
   pro: <Zap className="h-6 w-6" />,
+  'pro-year': <Zap className="h-6 w-6" />,
   enterprise: <Building className="h-6 w-6" />,
+};
+
+const PLAN_PERIOD_LABELS: Record<string, string> = {
+  month: '月',
+  year: '年',
+  single: '/单次',
 };
 
 export default function PricingPage() {
@@ -141,7 +149,12 @@ export default function PricingPage() {
                       {plan.price === 0 ? '免费' : `¥${plan.price}`}
                     </span>
                     {plan.price > 0 && (
-                      <span className="text-gray-500">/{plan.period === 'month' ? '月' : plan.period === 'year' ? '年' : plan.period}</span>
+                      <span className="text-gray-500">/{PLAN_PERIOD_LABELS[plan.period] || plan.period}</span>
+                    )}
+                    {plan.name === 'pro-year' && (
+                      <div className="text-sm text-red-500 mt-1">
+                        <span className="line-through text-gray-400">¥1188</span> 省¥389
+                      </div>
                     )}
                   </div>
 

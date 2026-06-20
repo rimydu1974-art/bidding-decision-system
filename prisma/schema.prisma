@@ -8,19 +8,32 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
-  password      String
-  phone         String?
-  wechatOpenId  String?        @unique
-  avatar        String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  assessments   Assessment[]
-  sessions      Session[]
-  knowledgeItems KnowledgeItem[]
-  projects      Project[]
+  id              String         @id @default(cuid())
+  email           String         @unique
+  name            String?
+  password        String
+  phone           String?
+  wechatOpenId    String?        @unique
+  avatar          String?
+  // 订阅相关
+  plan            String         @default("free") // free/pro/enterprise
+  planExpiresAt   DateTime?      // 订阅过期时间
+  tempExpiresAt   DateTime?      // 单次购买临时权限过期时间
+  // 额度相关
+  aiQuotaUsed     Int            @default(0)  // 本月已用AI次数
+  aiQuotaResetAt  DateTime       @default(now()) // 额度重置时间
+  // 用户自备API
+  userApiKey      String?        // 用户自己的DeepSeek API Key
+  apiKeyVerified  Boolean        @default(false) // API Key是否验证通过
+  // 统计
+  totalAiCalls    Int            @default(0)  // 总AI调用次数
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assessments     Assessment[]
+  sessions        Session[]
+  knowledgeItems  KnowledgeItem[]
+  projects        Project[]
+  orders          Order[]
 }
 
 model Session {
@@ -105,4 +118,20 @@ model PricingPlan {
   metadata      String   @default("{}")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  orderNo         String   @unique
+  planName        String   // pro/enterprise/single
+  amount          Float
+  paymentMethod   String?  // alipay/wechat
+  paymentStatus   String   @default("pending") // pending/paid/refunded
+  paidAt          DateTime?
+  expiresAt       DateTime // 权限过期时间
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
 }
