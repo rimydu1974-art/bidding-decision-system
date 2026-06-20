@@ -104,12 +104,15 @@ ${truncatedContent}
 
     // 调用AI进行评分
     const aiService = getAIService();
+    console.log('[Scoring] 调用AI服务进行评分...');
     const aiResponse = await aiService.analyze(prompt, undefined, {
       maxTokens: 2048,
     });
+    console.log('[Scoring] AI响应内容:', aiResponse.content.substring(0, 500));
 
     // 解析AI评分结果
     const results = parseScoringResults(aiResponse.content, scoringCriteria);
+    console.log('[Scoring] 解析结果:', JSON.stringify(results));
 
     // 计算加权总分
     let totalScore = 0;
@@ -140,23 +143,42 @@ function parseScoringResults(
   const results: ScoringResult[] = [];
 
   for (const criterion of criteria) {
-    // 尝试从AI响应中提取分数
-    const scoreRegex = new RegExp(
-      `${criterion.name}[\\s\\S]*?(?:得分|分数)[：:]\\s*(\\d+)\\s*/?\\s*100`,
-      'i'
-    );
-    const scoreMatch = aiResponse.match(scoreRegex);
+    let score = 60; // 默认值
+    let suggestion = '暂无具体建议';
 
-    const suggestionRegex = new RegExp(
-      `${criterion.name}[\\s\\S]*?建议[：:]\\s*([\\s\\S]*?)(?=##|\\z)`,
-      'i'
-    );
-    const suggestionMatch = aiResponse.match(suggestionRegex);
+    // 尝试多种正则匹配分数
+    const patterns = [
+      // 匹配 "技术方案\n- 得分：85/100" 或 "技术方案：85分"
+      new RegExp(`${criterion.name}[：:]*\\s*[\\-\\s]*(?:得分|分数|评分)[：:]\\s*(\\d+)\\s*[/／]?\\s*100?`, 'i'),
+      // 匹配 "技术方案 85分"
+      new RegExp(`${criterion.name}[：:]*\\s*(\\d+)\\s*分`, 'i'),
+      // 匹配 "技术方案：85"
+      new RegExp(`${criterion.name}[：:]\\s*(\\d+)`, 'i'),
+    ];
 
-    const score = scoreMatch ? parseInt(scoreMatch[1]) : 60;
-    const suggestion = suggestionMatch
-      ? suggestionMatch[1].trim().substring(0, 200)
-      : '暂无具体建议';
+    for (const pattern of patterns) {
+      const match = aiResponse.match(pattern);
+      if (match) {
+        score = parseInt(match[1]);
+        if (score >= 0 && score <= 100) break;
+      }
+    }
+
+    // 尝试提取建议
+    const suggestionPatterns = [
+      // 匹配 "建议：xxx" 或 "建议:xxx"
+      new RegExp(`${criterion.name}[\\s\\S]*?(?:建议|点评|评语)[：:]\\s*([\\s\\S]*?)(?=\\n##|\\n\\n|$)`, 'i'),
+      // 匹配 "技术方案...建议：xxx"
+      new RegExp(`(?:建议|点评)[：:]\\s*([\\s\\S]*?)(?=\\n##|\\n\\n|$)`, 'i'),
+    ];
+
+    for (const pattern of suggestionPatterns) {
+      const match = aiResponse.match(pattern);
+      if (match && match[1].trim().length > 5) {
+        suggestion = match[1].trim().substring(0, 200);
+        break;
+      }
+    }
 
     let status: 'good' | 'warning' | 'bad' = 'good';
     if (score < 60) status = 'bad';

@@ -164,8 +164,10 @@ export default function ScoringPage() {
               <CardContent className="p-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold">预测总分</h2>
-                    <p className="text-blue-100 mt-1">基于AI分析的综合评分</p>
+                    <h2 className="text-2xl font-bold">投标竞争力评分</h2>
+                    <p className="text-blue-100 mt-1">
+                      基于招标文件的综合评估，预测您的投标方案在评审中的竞争力
+                    </p>
                   </div>
                   <div className="text-right">
                     <div className="text-6xl font-bold">{scoring.totalScore}</div>
@@ -178,6 +180,20 @@ export default function ScoringPage() {
                       className="bg-white rounded-full h-3 transition-all duration-500"
                       style={{ width: `${scoring.totalScore}%` }}
                     ></div>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">80+</div>
+                    <div className="text-blue-100">竞争力强</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">60-79</div>
+                    <div className="text-blue-100">有竞争力</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">&lt;60</div>
+                    <div className="text-blue-100">需改进</div>
                   </div>
                 </div>
               </CardContent>
