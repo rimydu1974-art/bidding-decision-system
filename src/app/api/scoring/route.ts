@@ -24,30 +24,46 @@ const DEFAULT_CRITERIA: ScoringCriteria[] = [
   { name: '服务承诺', weight: 10, description: '售后服务、质量保证' },
 ];
 
+const FILE_CATEGORIES: Record<string, string> = {
+  qualification: '资质证明文件',
+  price: '价格文件',
+  technical: '商务技术文件',
+  other: '其他文件',
+};
+
 // POST: 实时评分预测
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || '';
-    let content = '';
+    let allContent = '';
 
     if (contentType.includes('multipart/form-data')) {
-      // 文件上传模式
+      // 多文件上传模式
       const formData = await request.formData();
-      const file = formData.get('file') as File;
+      const fileCount = parseInt(formData.get('fileCount') as string) || 0;
 
-      if (!file) {
-        return NextResponse.json({ error: '请上传文件' }, { status: 400 });
+      if (fileCount === 0) {
+        return NextResponse.json({ error: '请上传投标文件' }, { status: 400 });
       }
 
-      const parsedDoc = await parseFile(file);
-      content = parsedDoc.content;
+      // 解析所有文件
+      for (let i = 0; i < fileCount; i++) {
+        const file = formData.get(`file_${i}`) as File;
+        const category = formData.get(`category_${i}`) as string;
+
+        if (file) {
+          const parsedDoc = await parseFile(file);
+          const categoryLabel = FILE_CATEGORIES[category] || category;
+          allContent += `\n\n=== ${categoryLabel}: ${file.name} ===\n${parsedDoc.content}`;
+        }
+      }
     } else {
       // JSON模式
       const body = await request.json();
-      content = body.content || '';
+      allContent = body.content || '';
     }
 
-    if (!content || content.length < 10) {
+    if (!allContent || allContent.length < 10) {
       return NextResponse.json(
         { error: '文档内容为空或无法解析' },
         { status: 400 }
@@ -56,9 +72,9 @@ export async function POST(request: NextRequest) {
 
     // 截取内容避免超出token限制
     const maxContentLength = 25000;
-    const truncatedContent = content.length > maxContentLength
-      ? content.substring(0, maxContentLength)
-      : content;
+    const truncatedContent = allContent.length > maxContentLength
+      ? allContent.substring(0, maxContentLength)
+      : allContent;
 
     // 第一步：从招标文件中提取评分标准
     const extractPrompt = `你是一位资深的投标评审专家。请从以下招标文件中提取评分标准/评分细则。

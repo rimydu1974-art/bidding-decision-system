@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileUpload } from '@/components/upload/file-upload';
 import {
   ArrowLeft,
-  TrendingUp,
-  AlertTriangle,
+  FileText,
+  Upload,
+  X,
+  File,
   CheckCircle,
+  AlertTriangle,
   XCircle,
-  BarChart3,
 } from 'lucide-react';
 
 interface ScoringResult {
@@ -31,18 +32,64 @@ interface ScoringResponse {
   criteria: { name: string; weight: number; description: string }[];
 }
 
+interface UploadedFile {
+  file: File;
+  category: string;
+}
+
+const FILE_CATEGORIES = [
+  { id: 'qualification', name: '资质证明文件', description: '企业资质、证书、业绩等' },
+  { id: 'price', name: '价格文件', description: '报价单、成本分析等' },
+  { id: 'technical', name: '商务技术文件', description: '技术方案、实施方案等' },
+  { id: 'other', name: '其他文件', description: '其他相关文件' },
+];
+
 export default function ScoringPage() {
   const router = useRouter();
   const [scoring, setScoring] = useState<ScoringResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [content, setContent] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedCategory, setSelectedCategory] = useState('technical');
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles: UploadedFile[] = [];
+    for (let i = 0; i < files.length; i++) {
+      newFiles.push({
+        file: files[i],
+        category: selectedCategory,
+      });
+    }
+
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+    // 重置input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (uploadedFiles.length === 0) {
+      alert('请先上传投标文件');
+      return;
+    }
+
     setLoading(true);
     try {
-      // 直接发送文件到评分API
+      // 上传所有文件
       const formData = new FormData();
-      formData.append('file', file);
+      uploadedFiles.forEach((item, index) => {
+        formData.append(`file_${index}`, item.file);
+        formData.append(`category_${index}`, item.category);
+      });
+      formData.append('fileCount', uploadedFiles.length.toString());
 
       const scoringResponse = await fetch('/api/scoring', {
         method: 'POST',
@@ -119,21 +166,21 @@ export default function ScoringPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <BarChart3 className="h-8 w-8 text-blue-600 mb-2" />
-                    <h3 className="font-semibold">多维度评分</h3>
+                    <FileText className="h-8 w-8 text-blue-600 mb-2" />
+                    <h3 className="font-semibold">多文件上传</h3>
                     <p className="text-sm text-gray-600">
-                      从技术、商务、报价、团队、服务5个维度综合评分
+                      支持上传多份投标文件（资质、价格、技术方案等）
                     </p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
-                    <TrendingUp className="h-8 w-8 text-green-600 mb-2" />
-                    <h3 className="font-semibold">实时预测</h3>
+                    <Upload className="h-8 w-8 text-green-600 mb-2" />
+                    <h3 className="font-semibold">智能评分</h3>
                     <p className="text-sm text-gray-600">
-                      基于AI分析，实时预测投标得分
+                      根据招标文件评分标准自动评分
                     </p>
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg">
-                    <AlertTriangle className="h-8 w-8 text-purple-600 mb-2" />
+                    <FileText className="h-8 w-8 text-purple-600 mb-2" />
                     <h3 className="font-semibold">改进建议</h3>
                     <p className="text-sm text-gray-600">
                       针对薄弱环节提供具体改进建议
@@ -146,10 +193,107 @@ export default function ScoringPage() {
             {/* 上传区域 */}
             <Card>
               <CardHeader>
-                <CardTitle>上传招标文件</CardTitle>
+                <CardTitle>上传投标文件</CardTitle>
               </CardHeader>
-              <CardContent>
-                <FileUpload onUpload={handleFileUpload} isProcessing={loading} />
+              <CardContent className="space-y-4">
+                {/* 文件分类选择 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    选择文件类型
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {FILE_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`p-2 rounded-lg text-left text-sm ${
+                          selectedCategory === cat.id
+                            ? 'bg-blue-100 border-2 border-blue-500'
+                            : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="font-medium">{cat.name}</div>
+                        <div className="text-xs text-gray-500">{cat.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 文件上传按钮 */}
+                <div className="flex items-center space-x-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    选择文件
+                  </Button>
+                  <span className="text-sm text-gray-500">
+                    支持 PDF、Word、Excel 格式，可多选
+                  </span>
+                </div>
+
+                {/* 已上传文件列表 */}
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      已选文件 ({uploadedFiles.length}个)
+                    </label>
+                    <div className="space-y-2">
+                      {uploadedFiles.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <File className="h-5 w-5 text-blue-500" />
+                            <div>
+                              <div className="font-medium text-sm">{item.file.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {FILE_CATEGORIES.find((c) => c.id === item.category)?.name}
+                                {' · '}
+                                {(item.file.size / 1024).toFixed(1)} KB
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-1 hover:bg-red-100 rounded"
+                          >
+                            <X className="h-4 w-4 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 上传按钮 */}
+                <Button
+                  onClick={handleUpload}
+                  disabled={uploadedFiles.length === 0 || loading}
+                  className="w-full"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      开始评分预测
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </div>
