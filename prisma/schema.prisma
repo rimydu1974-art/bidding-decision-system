@@ -19,6 +19,8 @@ model User {
   updatedAt     DateTime       @updatedAt
   assessments   Assessment[]
   sessions      Session[]
+  knowledgeItems KnowledgeItem[]
+  projects      Project[]
 }
 
 model Session {
@@ -53,4 +55,38 @@ model Assessment {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   user                  User     @relation(fields: [userId], references: [id])
+}
+
+model KnowledgeItem {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  category      String   @default("未分类")
+  subcategory   String?
+  content       String   @default("")
+  tags          String   @default("[]")
+  fileType      String   @default("text")
+  fileName      String?
+  fileUrl       String?
+  source        String   @default("manual")
+  sourceId      String?
+  metadata      String   @default("{}")
+  usageCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  status        String   @default("active")
+  members       String   @default("[]")
+  tasks         String   @default("[]")
+  metadata      String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
 }

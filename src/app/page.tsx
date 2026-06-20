@@ -158,6 +158,14 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
+                  <Link href="/knowledge" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <FileText className="h-5 w-5" />
+                    <span>知识库</span>
+                  </Link>
+                  <Link href="/ai-write" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <FileText className="h-5 w-5" />
+                    <span>AI写标书</span>
+                  </Link>
                   <button
                     onClick={() => setShowHistory(!showHistory)}
                     className="flex items-center space-x-1 text-gray-600 hover:text-gray-900"
