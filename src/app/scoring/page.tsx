@@ -39,40 +39,25 @@ export default function ScoringPage() {
   const handleFileUpload = async (file: File) => {
     setLoading(true);
     try {
-      // 先提取文件内容
+      // 直接发送文件到评分API
       const formData = new FormData();
       formData.append('file', file);
 
-      const extractResponse = await fetch('/api/analyze', {
+      const scoringResponse = await fetch('/api/scoring', {
         method: 'POST',
         body: formData,
       });
 
-      if (!extractResponse.ok) {
-        throw new Error('文件解析失败');
-      }
-
-      const extractData = await extractResponse.json();
-      const extractedContent = extractData.assessment?.rawContent || '';
-
-      setContent(extractedContent);
-
-      // 然后进行评分预测
-      const scoringResponse = await fetch('/api/scoring', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: extractedContent }),
-      });
-
       if (!scoringResponse.ok) {
-        throw new Error('评分预测失败');
+        const errorData = await scoringResponse.json();
+        throw new Error(errorData.error || '评分预测失败');
       }
 
       const scoringData = await scoringResponse.json();
       setScoring(scoringData);
     } catch (error) {
       console.error('Scoring error:', error);
-      alert('评分预测失败，请重试');
+      alert(error instanceof Error ? error.message : '评分预测失败，请重试');
     } finally {
       setLoading(false);
     }

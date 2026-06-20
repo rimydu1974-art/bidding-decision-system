@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAIService } from '@/lib/ai';
+import { parseFile } from '@/lib/parsers';
 
 interface ScoringCriteria {
   name: string;
@@ -26,13 +27,42 @@ const DEFAULT_CRITERIA: ScoringCriteria[] = [
 // POST: 实时评分预测
 export async function POST(request: NextRequest) {
   try {
-    const { content, criteria } = await request.json();
+    const contentType = request.headers.get('content-type') || '';
+    let content = '';
+    let scoringCriteria = DEFAULT_CRITERIA;
 
-    if (!content) {
-      return NextResponse.json({ error: '请提供文档内容' }, { status: 400 });
+    if (contentType.includes('multipart/form-data')) {
+      // 文件上传模式
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+
+      if (!file) {
+        return NextResponse.json({ error: '请上传文件' }, { status: 400 });
+      }
+
+      const parsedDoc = await parseFile(file);
+      content = parsedDoc.content;
+    } else {
+      // JSON模式（文本内容）
+      const body = await request.json();
+      content = body.content || '';
+      if (body.criteria) {
+        scoringCriteria = body.criteria;
+      }
     }
 
-    const scoringCriteria = criteria || DEFAULT_CRITERIA;
+    if (!content || content.length < 10) {
+      return NextResponse.json(
+        { error: '文档内容为空或无法解析' },
+        { status: 400 }
+      );
+    }
+
+    // 截取内容避免超出token限制
+    const maxContentLength = 25000;
+    const truncatedContent = content.length > maxContentLength
+      ? content.substring(0, maxContentLength)
+      : content;
 
     // 构建AI评分提示词
     const prompt = `你是一位资深的投标评审专家。请根据以下招标文件内容，对投标方案进行实时评分预测。
@@ -41,7 +71,7 @@ export async function POST(request: NextRequest) {
 ${scoringCriteria.map((c: ScoringCriteria) => `- ${c.name}（权重${c.weight}%）：${c.description}`).join('\n')}
 
 ## 招标文件内容
-${content.substring(0, 3000)}
+${truncatedContent}
 
 ## 要求
 请为每个评分维度打分（0-100分），并给出具体建议。格式如下：
