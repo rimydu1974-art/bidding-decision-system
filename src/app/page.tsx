@@ -1,15 +1,67 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileUpload } from '@/components/upload/file-upload';
 import { AssessmentDisplay } from '@/components/assessment/assessment-display';
 import { Assessment } from '@/types';
-import { FileText, AlertTriangle, CheckCircle } from 'lucide-react';
+import { FileText, AlertTriangle, CheckCircle, User, LogOut, History, Download } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+interface HistoryItem {
+  id: string;
+  projectName: string;
+  budget: number;
+  riskLevel: string;
+  recommendation: string;
+  fileName: string;
+  createdAt: string;
+}
 
 export default function Home() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      const data = await response.json();
+      setUser(data.user);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/history');
+      const data = await response.json();
+      setHistory(data.assessments || []);
+    } catch {
+      console.error('Failed to load history');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (user) {
+      loadHistory();
+    }
+  }, [user, loadHistory]);
 
   const handleUpload = async (file: File) => {
     setIsProcessing(true);
@@ -25,20 +77,66 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('分析失败，请稍后重试');
+        const errData = await response.json();
+        throw new Error(errData.error || '分析失败');
       }
 
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || '分析失败');
-      }
       setAssessment(data.assessment);
+
+      if (user) {
+        try {
+          await fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...data.assessment,
+              fileName: file.name,
+            }),
+          });
+          loadHistory();
+        } catch {
+          console.error('Failed to save history');
+        }
+      }
     } catch (err) {
-      console.error('分析错误:', err);
       setError(err instanceof Error ? err.message : '分析过程中出现错误');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!assessment) return;
+
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assessment),
+      });
+
+      if (!response.ok) throw new Error('下载失败');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `投标决策评估-${assessment.basicInfo.projectName || '未命名'}-${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    setHistory([]);
+    window.location.reload();
   };
 
   return (
@@ -56,11 +154,80 @@ export default function Home() {
                 <p className="text-sm text-gray-500">Bidding Decision Support System</p>
               </div>
             </div>
+
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-900"
+                  >
+                    <History className="h-5 w-5" />
+                    <span>历史记录</span>
+                  </button>
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <User className="h-5 w-5" />
+                    <span>{user.name || user.email}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-1 text-gray-500 hover:text-red-600"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  <Link href="/login" className="text-gray-600 hover:text-gray-900">
+                    登录
+                  </Link>
+                  <Link href="/register">
+                    <Button>注册</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* 历史记录面板 */}
+        {showHistory && user && (
+          <div className="mb-8 p-6 bg-white rounded-lg shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">历史评估记录</h3>
+            {history.length === 0 ? (
+              <p className="text-gray-500">暂无历史记录</p>
+            ) : (
+              <div className="space-y-3">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  >
+                    <div>
+                      <div className="font-medium">{item.projectName}</div>
+                      <div className="text-sm text-gray-500">
+                        {item.fileName} · {new Date(item.createdAt).toLocaleDateString('zh-CN')}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        item.recommendation === 'bid' ? 'bg-green-100 text-green-800' :
+                        item.recommendation === 'caution' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {item.recommendation === 'bid' ? '建议投' :
+                         item.recommendation === 'caution' ? '谨慎投' : '不建议投'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {!assessment ? (
           <div className="space-y-8">
             {/* 价值主张 */}
@@ -130,15 +297,22 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* 返回按钮 */}
-            <button
-              onClick={() => setAssessment(null)}
-              className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
-            >
-              <span>← 返回上传</span>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setAssessment(null)}
+                className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+              >
+                <span>← 返回上传</span>
+              </button>
+              <button
+                onClick={handleDownloadReport}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                <Download className="h-4 w-4" />
+                <span>下载报告</span>
+              </button>
+            </div>
 
-            {/* 项目标题 */}
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
                 {assessment.basicInfo.projectName}
@@ -148,7 +322,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* 评估结果 */}
             <AssessmentDisplay assessment={assessment} />
           </div>
         )}
