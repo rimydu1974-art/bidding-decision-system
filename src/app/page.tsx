@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FileUpload } from '@/components/upload/file-upload';
 import { AssessmentDisplay } from '@/components/assessment/assessment-display';
 import { Assessment } from '@/types';
-import { FileText, AlertTriangle, CheckCircle, User, LogOut, History, Download } from 'lucide-react';
+import { FileText, AlertTriangle, CheckCircle, User, LogOut, History, Download, BarChart3, Folder, CreditCard, Code } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -165,6 +165,22 @@ export default function Home() {
                   <Link href="/ai-write" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
                     <FileText className="h-5 w-5" />
                     <span>AI写标书</span>
+                  </Link>
+                  <Link href="/scoring" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <BarChart3 className="h-5 w-5" />
+                    <span>评分预测</span>
+                  </Link>
+                  <Link href="/projects" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <Folder className="h-5 w-5" />
+                    <span>项目管理</span>
+                  </Link>
+                  <Link href="/pricing" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <CreditCard className="h-5 w-5" />
+                    <span>定价</span>
+                  </Link>
+                  <Link href="/api-docs" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
+                    <Code className="h-5 w-5" />
+                    <span>API</span>
                   </Link>
                   <button
                     onClick={() => setShowHistory(!showHistory)}
