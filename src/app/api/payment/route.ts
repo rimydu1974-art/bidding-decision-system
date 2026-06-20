@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
-
-// 定价方案
-const PLANS = {
-  free: { name: '免费版', price: 0, period: 'month' },
-  pro: { name: '专业版', price: 99, period: 'month' },
-  enterprise: { name: '企业版', price: 299, period: 'month' },
-};
+import prisma from '@/lib/db';
 
 // POST: 创建支付订单
 export async function POST(request: NextRequest) {
@@ -25,18 +19,25 @@ export async function POST(request: NextRequest) {
 
     const { planId, paymentMethod } = await request.json();
 
-    if (!planId || !PLANS[planId as keyof typeof PLANS]) {
+    if (!planId) {
       return NextResponse.json({ error: '无效的订阅方案' }, { status: 400 });
     }
 
-    const plan = PLANS[planId as keyof typeof PLANS];
+    // 从数据库获取定价方案
+    const plan = await prisma.pricingPlan.findFirst({
+      where: { name: planId, isActive: true },
+    });
+
+    if (!plan) {
+      return NextResponse.json({ error: '无效的订阅方案' }, { status: 400 });
+    }
 
     // 创建订单（模拟）
     const order = {
       id: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId: session.user.id,
       planId,
-      planName: plan.name,
+      planName: plan.displayName,
       amount: plan.price,
       currency: 'CNY',
       paymentMethod: paymentMethod || 'alipay',
