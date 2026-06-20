@@ -26,6 +26,7 @@ interface ScoringResult {
 interface ScoringResponse {
   results: ScoringResult[];
   totalScore: number;
+  totalMaxScore: number;
   rawResponse: string;
   criteria: { name: string; weight: number; description: string }[];
 }
@@ -164,37 +165,26 @@ export default function ScoringPage() {
               <CardContent className="p-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold">投标竞争力评分</h2>
+                    <h2 className="text-2xl font-bold">预测得分</h2>
                     <p className="text-blue-100 mt-1">
-                      基于招标文件的综合评估，预测您的投标方案在评审中的竞争力
+                      根据招标文件评分标准，预测您的投标得分
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="text-6xl font-bold">{scoring.totalScore}</div>
-                    <div className="text-blue-100">/100</div>
+                    <div className="text-blue-100">/{scoring.totalMaxScore || 100}</div>
                   </div>
                 </div>
                 <div className="mt-6">
                   <div className="w-full bg-white bg-opacity-30 rounded-full h-3">
                     <div
                       className="bg-white rounded-full h-3 transition-all duration-500"
-                      style={{ width: `${scoring.totalScore}%` }}
+                      style={{ width: `${(scoring.totalScore / (scoring.totalMaxScore || 100)) * 100}%` }}
                     ></div>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">80+</div>
-                    <div className="text-blue-100">竞争力强</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">60-79</div>
-                    <div className="text-blue-100">有竞争力</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">&lt;60</div>
-                    <div className="text-blue-100">需改进</div>
-                  </div>
+                <div className="mt-4 text-center text-sm text-blue-100">
+                  满分 {scoring.totalMaxScore || 100} 分
                 </div>
               </CardContent>
             </Card>
@@ -203,6 +193,7 @@ export default function ScoringPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {scoring.results.map((result, index) => {
                 const criterion = scoring.criteria[index];
+                const maxScore = criterion?.weight || result.maxScore;
                 return (
                   <Card key={result.criteria}>
                     <CardContent className="p-6">
@@ -214,7 +205,7 @@ export default function ScoringPage() {
                               {result.criteria}
                             </h3>
                             <p className="text-sm text-gray-500">
-                              权重 {criterion?.weight || 20}%
+                              满分 {maxScore} 分
                             </p>
                           </div>
                         </div>
@@ -222,7 +213,7 @@ export default function ScoringPage() {
                           <div className={`text-3xl font-bold ${getScoreColor(result.score)}`}>
                             {result.score}
                           </div>
-                          <div className="text-sm text-gray-500">/{result.maxScore}</div>
+                          <div className="text-sm text-gray-500">/{maxScore}</div>
                         </div>
                       </div>
 
@@ -230,13 +221,13 @@ export default function ScoringPage() {
                       <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                         <div
                           className={`h-2 rounded-full transition-all duration-500 ${
-                            result.score >= 80
+                            (result.score / maxScore) >= 0.8
                               ? 'bg-green-500'
-                              : result.score >= 60
+                              : (result.score / maxScore) >= 0.6
                               ? 'bg-yellow-500'
                               : 'bg-red-500'
                           }`}
-                          style={{ width: `${result.score}%` }}
+                          style={{ width: `${(result.score / maxScore) * 100}%` }}
                         ></div>
                       </div>
 

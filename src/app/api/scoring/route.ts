@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || '';
     let content = '';
-    let scoringCriteria = DEFAULT_CRITERIA;
 
     if (contentType.includes('multipart/form-data')) {
       // 文件上传模式
@@ -43,12 +42,9 @@ export async function POST(request: NextRequest) {
       const parsedDoc = await parseFile(file);
       content = parsedDoc.content;
     } else {
-      // JSON模式（文本内容）
+      // JSON模式
       const body = await request.json();
       content = body.content || '';
-      if (body.criteria) {
-        scoringCriteria = body.criteria;
-      }
     }
 
     if (!content || content.length < 10) {
@@ -64,67 +60,121 @@ export async function POST(request: NextRequest) {
       ? content.substring(0, maxContentLength)
       : content;
 
-    // 构建AI评分提示词
-    const prompt = `你是一位资深的投标评审专家。请根据以下招标文件内容，对投标方案进行实时评分预测。
-
-## 评分维度
-${scoringCriteria.map((c: ScoringCriteria) => `- ${c.name}（权重${c.weight}%）：${c.description}`).join('\n')}
+    // 第一步：从招标文件中提取评分标准
+    const extractPrompt = `你是一位资深的投标评审专家。请从以下招标文件中提取评分标准/评分细则。
 
 ## 招标文件内容
 ${truncatedContent}
 
 ## 要求
-请为每个评分维度打分（0-100分），并给出具体建议。格式如下：
+请提取招标文件中的评分标准，包括：
+1. 评分维度名称
+2. 每个维度的满分分值
+3. 评分要点/评分细则
 
-## 技术方案
-- 得分：XX/100
-- 建议：...
+请以JSON格式返回，格式如下：
+{
+  "scoringCriteria": [
+    {
+      "name": "评分维度名称",
+      "maxScore": 该维度满分,
+      "description": "评分要点描述"
+    }
+  ]
+}
 
-## 商务资质
-- 得分：XX/100
-- 建议：...
+如果招标文件中没有明确的评分标准，请根据常见招标评分规则推断。
 
-## 报价合理性
-- 得分：XX/100
-- 建议：...
+请返回JSON：`;
 
-## 项目团队
-- 得分：XX/100
-- 建议：...
+    const aiService = getAIService();
+    console.log('[Scoring] 步骤1: 提取评分标准...');
 
-## 服务承诺
-- 得分：XX/100
-- 建议：...
+    const extractResponse = await aiService.analyze(extractPrompt, undefined, {
+      maxTokens: 1024,
+    });
+    console.log('[Scoring] 评分标准响应:', extractResponse.content.substring(0, 500));
+
+    // 解析评分标准
+    let scoringCriteria: ScoringCriteria[] = DEFAULT_CRITERIA;
+    try {
+      // 尝试从响应中提取JSON
+      const jsonMatch = extractResponse.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.scoringCriteria && Array.isArray(parsed.scoringCriteria)) {
+          scoringCriteria = parsed.scoringCriteria.map((item: {
+            name: string;
+            maxScore: number;
+            description: string;
+          }) => ({
+            name: item.name,
+            weight: item.maxScore, // 这里weight存储的是满分分值
+            description: item.description,
+          }));
+        }
+      }
+    } catch (e) {
+      console.log('[Scoring] 解析评分标准失败，使用默认标准', e);
+    }
+
+    console.log('[Scoring] 使用评分标准:', JSON.stringify(scoringCriteria));
+
+    // 第二步：根据评分标准进行评分
+    const scoringPrompt = `你是一位资深的投标评审专家。请根据以下招标文件的评分标准，对投标方案进行评分。
+
+## 评分标准
+${scoringCriteria.map((c: ScoringCriteria) => `- ${c.name}（满分${c.weight}分）：${c.description}`).join('\n')}
+
+## 招标文件内容
+${truncatedContent}
+
+## 要求
+请严格按照评分标准，为每个维度打分。格式如下：
+
+## 评分结果
+
+### 1. ${scoringCriteria[0]?.name || '技术方案'}
+- 得分：XX/${scoringCriteria[0]?.weight || 100}
+- 评分依据：...
+- 扣分原因：...（如有）
+
+### 2. ${scoringCriteria[1]?.name || '商务资质'}
+- 得分：XX/${scoringCriteria[1]?.weight || 100}
+- 评分依据：...
+- 扣分原因：...（如有）
+
+（依次类推）
 
 ## 综合评价
-- 预测总分：XX/100
-- 整体建议：...
+- 预测总分：XX/${scoringCriteria.reduce((sum, c) => sum + c.weight, 0)}
+- 整体评价：...
+- 建议改进点：...
 
 请开始评分：`;
 
-    // 调用AI进行评分
-    const aiService = getAIService();
-    console.log('[Scoring] 调用AI服务进行评分...');
-    const aiResponse = await aiService.analyze(prompt, undefined, {
+    console.log('[Scoring] 步骤2: 进行评分...');
+    const scoringResponse = await aiService.analyze(scoringPrompt, undefined, {
       maxTokens: 2048,
     });
-    console.log('[Scoring] AI响应内容:', aiResponse.content.substring(0, 500));
+    console.log('[Scoring] 评分响应:', scoringResponse.content.substring(0, 500));
 
-    // 解析AI评分结果
-    const results = parseScoringResults(aiResponse.content, scoringCriteria);
+    // 解析评分结果
+    const results = parseScoringResults(scoringResponse.content, scoringCriteria);
     console.log('[Scoring] 解析结果:', JSON.stringify(results));
 
-    // 计算加权总分
+    // 计算总分（直接累加，因为weight存储的是分值）
+    const totalMaxScore = scoringCriteria.reduce((sum, c) => sum + c.weight, 0);
     let totalScore = 0;
-    results.forEach((result, index) => {
-      const weight = scoringCriteria[index]?.weight || 20;
-      totalScore += (result.score / 100) * weight;
+    results.forEach((result) => {
+      totalScore += result.score;
     });
 
     return NextResponse.json({
       results,
       totalScore: Math.round(totalScore),
-      rawResponse: aiResponse.content,
+      totalMaxScore,
+      rawResponse: scoringResponse.content,
       criteria: scoringCriteria,
     });
   } catch (error) {
