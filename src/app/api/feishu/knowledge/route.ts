@@ -77,26 +77,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
-    // 存储到本地数据库（作为知识库条目）
-    const knowledgeItem = await prisma.assessment.create({
+    // 存储到本地知识库（使用KnowledgeItem表）
+    const knowledgeItem = await prisma.knowledgeItem.create({
       data: {
         userId: session.user.id,
-        projectName: title,
-        fileName: `feishu-${documentId}`,
-        riskLevel: 'low',
-        recommendation: 'bid',
-        basicInfo: JSON.stringify({
-          source: 'feishu',
-          documentId,
-          category: category || '未分类',
-        }),
-        aiResult: JSON.stringify({ content }),
-        risks: '[]',
-        tasks: '[]',
+        title,
+        category: category || '飞书文档',
+        content: content || '',
+        tags: JSON.stringify(['飞书同步']),
+        fileType: 'feishu',
+        source: 'feishu',
+        sourceId: documentId,
       },
     });
 
-    return NextResponse.json({ knowledgeItem });
+    return NextResponse.json({ item: knowledgeItem });
   } catch (error) {
     console.error('Feishu sync error:', error);
     return NextResponse.json(

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
+    const source = searchParams.get('source');
     const search = searchParams.get('search');
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
@@ -29,6 +30,10 @@ export async function GET(request: NextRequest) {
 
     if (category && category !== '全部') {
       where.category = category;
+    }
+
+    if (source && source !== 'all') {
+      where.source = source;
     }
 
     if (search) {
@@ -56,6 +61,13 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     });
 
+    // 获取来源统计
+    const sources = await prisma.knowledgeItem.groupBy({
+      by: ['source'],
+      where: { userId: session.user.id },
+      _count: { id: true },
+    });
+
     return NextResponse.json({
       items,
       total,
@@ -64,6 +76,10 @@ export async function GET(request: NextRequest) {
       categories: categories.map((c) => ({
         name: c.category,
         count: c._count.id,
+      })),
+      sources: sources.map((s) => ({
+        name: s.source || 'manual',
+        count: s._count.id,
       })),
     });
   } catch (error) {
