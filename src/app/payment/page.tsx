@@ -38,11 +38,17 @@ function PaymentContent() {
 
   // 收款信息 - 请替换为你自己的
   const paymentInfo = {
-    wechat: '你的微信号',
-    alipay: '你的支付宝账号',
-    bankCard: '你的银行卡号',
-    bankName: '开户银行',
-    holderName: '你的姓名',
+    wechat: {
+      name: '张三',           // ← 替换：微信收款人姓名
+      account: '微信号',      // ← 替换：微信号或手机号
+    },
+    alipay: {
+      name: '李四',           // ← 替换：支付宝收款人姓名
+      account: '支付宝账号',  // ← 替换：支付宝账号
+    },
+    bankCard: '银行卡号',     // ← 替换（可选）
+    bankName: '开户银行',     // ← 替换（可选）
+    holderName: '银行卡户名', // ← 替换（可选）
   };
 
   useEffect(() => {
@@ -181,36 +187,69 @@ function PaymentContent() {
           </div>
 
           {/* 手动转账信息 */}
-          <div className="border rounded-lg p-4 space-y-2">
+          <div className="border rounded-lg p-4 space-y-3">
             <p className="text-sm font-medium mb-2">或手动转账：</p>
             
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">微信/支付宝：</span>
-              <div className="flex items-center">
-                <code className="bg-gray-100 px-2 py-1 rounded mr-2">{paymentInfo.alipay}</code>
-                <button
-                  onClick={() => copyToClipboard(paymentInfo.alipay)}
-                  className="text-blue-500 hover:text-blue-700"
-                >
-                  {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
+            {/* 微信转账 */}
+            <div className="bg-green-50 rounded p-3">
+              <p className="text-sm font-medium text-green-700 mb-1">微信转账</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">收款人：</span>
+                <span>{paymentInfo.wechat.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">微信号/手机：</span>
+                <div className="flex items-center">
+                  <code className="bg-white px-2 py-1 rounded mr-2">{paymentInfo.wechat.account}</code>
+                  <button
+                    onClick={() => copyToClipboard(paymentInfo.wechat.account)}
+                    className="text-green-600 hover:text-green-700"
+                  >
+                    {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">银行卡：</span>
-              <code className="bg-gray-100 px-2 py-1 rounded">{paymentInfo.bankCard}</code>
+            {/* 支付宝转账 */}
+            <div className="bg-blue-50 rounded p-3">
+              <p className="text-sm font-medium text-blue-700 mb-1">支付宝转账</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">收款人：</span>
+                <span>{paymentInfo.alipay.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">支付宝账号：</span>
+                <div className="flex items-center">
+                  <code className="bg-white px-2 py-1 rounded mr-2">{paymentInfo.alipay.account}</code>
+                  <button
+                    onClick={() => copyToClipboard(paymentInfo.alipay.account)}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">开户行：</span>
-              <span>{paymentInfo.bankName}</span>
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">户名：</span>
-              <span>{paymentInfo.holderName}</span>
-            </div>
+            {/* 银行卡转账（可选） */}
+            {paymentInfo.bankCard && (
+              <div className="bg-gray-50 rounded p-3">
+                <p className="text-sm font-medium text-gray-700 mb-1">银行卡转账</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">卡号：</span>
+                  <code className="bg-white px-2 py-1 rounded">{paymentInfo.bankCard}</code>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">开户行：</span>
+                  <span>{paymentInfo.bankName}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">户名：</span>
+                  <span>{paymentInfo.holderName}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <Alert>
