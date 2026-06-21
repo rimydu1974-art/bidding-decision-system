@@ -58,30 +58,8 @@ export default function PricingPage() {
   };
 
   const handleSubscribe = async (planId: string) => {
-    setSelectedPlan(planId);
-    setSubscribing(true);
-
-    try {
-      const response = await fetch('/api/payment/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert('支付功能开发中，敬请期待！');
-      } else {
-        alert(data.error || '创建订单失败');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('支付失败，请重试');
-    } finally {
-      setSubscribing(false);
-      setSelectedPlan(null);
-    }
+    // 跳转到支付页面
+    router.push(`/payment?plan=${planId}`);
   };
 
   return (
