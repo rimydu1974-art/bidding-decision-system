@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAIService } from '@/lib/ai';
 import { parseFile } from '@/lib/parsers';
+import { validateSession, getTokenFromRequest } from '@/lib/auth';
+import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
+import prisma from '@/lib/db';
 
 interface ScoringCriteria {
   name: string;
@@ -35,6 +38,23 @@ const FILE_CATEGORIES: Record<string, string> = {
 // POST: 实时评分预测
 export async function POST(request: NextRequest) {
   try {
+    // 验证登录
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    }
+
+    const session = await validateSession(token);
+    if (!session) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    }
+
+    // 检查额度
+    const quotaCheck = await checkAiQuota(session.user.id);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json({ error: quotaCheck.reason }, { status: 403 });
+    }
+
     const contentType = request.headers.get('content-type') || '';
     let allContent = '';
 
@@ -107,12 +127,40 @@ ${truncatedContent}
 
 请返回JSON：`;
 
-    const aiService = getAIService();
+    // 获取用户信息
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    // AI调用辅助函数
+    const callAI = async (prompt: string, maxTokens: number) => {
+      if (quotaCheck.useUserApiKey && user?.userApiKey) {
+        // 使用用户自己的API Key
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.userApiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: maxTokens,
+            temperature: 0.1,
+          }),
+        });
+        const data = await response.json();
+        return { content: data.choices[0]?.message?.content || '' };
+      } else {
+        // 使用平台API
+        const aiService = getAIService();
+        return await aiService.analyze(prompt, undefined, { maxTokens });
+      }
+    };
+
     console.log('[Scoring] 步骤1: 提取评分标准...');
 
-    const extractResponse = await aiService.analyze(extractPrompt, undefined, {
-      maxTokens: 1024,
-    });
+    const extractResponse = await callAI(extractPrompt, 1024);
     console.log('[Scoring] 评分标准响应:', extractResponse.content.substring(0, 500));
 
     // 解析评分标准
@@ -174,10 +222,11 @@ ${truncatedContent}
 请开始评分：`;
 
     console.log('[Scoring] 步骤2: 进行评分...');
-    const scoringResponse = await aiService.analyze(scoringPrompt, undefined, {
-      maxTokens: 2048,
-    });
+    const scoringResponse = await callAI(scoringPrompt, 2048);
     console.log('[Scoring] 评分响应:', scoringResponse.content.substring(0, 500));
+
+    // 增加使用次数
+    await incrementAiUsage(session.user.id);
 
     // 解析评分结果
     const results = parseScoringResults(scoringResponse.content, scoringCriteria);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Copy, RefreshCw, ArrowLeft } from 'lucide-react';
+import { FileText, Download, Copy, RefreshCw, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 interface WriteType {
   id: string;
@@ -13,23 +13,41 @@ interface WriteType {
   description: string;
 }
 
+interface QuotaInfo {
+  quota: {
+    used: number;
+    limit: number;
+    remaining: number;
+  };
+  user: {
+    plan: string;
+  };
+}
+
 export default function AIWritePage() {
   const router = useRouter();
   const [writeTypes, setWriteTypes] = useState<WriteType[]>([]);
   const [selectedType, setSelectedType] = useState('');
+  const [tenderSummary, setTenderSummary] = useState('');
   const [projectInfo, setProjectInfo] = useState('');
   const [requirements, setRequirements] = useState('');
   const [companyInfo, setCompanyInfo] = useState('');
+  const [companyQual, setCompanyQual] = useState('');
   const [priceInfo, setPriceInfo] = useState('');
   const [qualificationReqs, setQualificationReqs] = useState('');
   const [risks, setRisks] = useState('');
   const [generatedContent, setGeneratedContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
 
   useEffect(() => {
     fetch('/api/ai-write')
       .then((res) => res.json())
       .then((data) => setWriteTypes(data.types || []));
+    
+    fetch('/api/user/quota')
+      .then((res) => res.json())
+      .then((data) => setQuotaInfo(data));
   }, []);
 
   const handleGenerate = async () => {
@@ -45,9 +63,11 @@ export default function AIWritePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: selectedType,
+          tenderSummary,
           projectInfo,
           requirements,
           companyInfo,
+          companyQual,
           priceInfo,
           qualificationReqs,
           risks,
@@ -58,6 +78,10 @@ export default function AIWritePage() {
 
       if (response.ok) {
         setGeneratedContent(data.content);
+        // 刷新额度
+        fetch('/api/user/quota')
+          .then((res) => res.json())
+          .then((data) => setQuotaInfo(data));
       } else {
         alert(data.error || '生成失败');
       }
@@ -84,130 +108,53 @@ export default function AIWritePage() {
     URL.revokeObjectURL(url);
   };
 
-  const getInputFields = () => {
-    switch (selectedType) {
-      case '技术方案':
-        return (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">项目信息</label>
-              <textarea
-                value={projectInfo}
-                onChange={(e) => setProjectInfo(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入项目背景、目标、范围等..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">技术要求</label>
-              <textarea
-                value={requirements}
-                onChange={(e) => setRequirements(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入技术规格、功能需求等..."
-              />
-            </div>
-          </>
-        );
-      case '商务文件':
-        return (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">项目信息</label>
-              <textarea
-                value={projectInfo}
-                onChange={(e) => setProjectInfo(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入项目基本信息..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">企业信息</label>
-              <textarea
-                value={companyInfo}
-                onChange={(e) => setCompanyInfo(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入公司名称、资质、优势等..."
-              />
-            </div>
-          </>
-        );
-      case '投标函':
-        return (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">项目信息</label>
-              <textarea
-                value={projectInfo}
-                onChange={(e) => setProjectInfo(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入项目名称、招标编号等..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">报价信息</label>
-              <textarea
-                value={priceInfo}
-                onChange={(e) => setPriceInfo(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="输入报价金额、币种、有效期等..."
-              />
-            </div>
-          </>
-        );
-      case '资质证明':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">资质要求</label>
-            <textarea
-              value={qualificationReqs}
-              onChange={(e) => setQualificationReqs(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="输入招标文件中的资质要求..."
-            />
-          </div>
-        );
-      case '风险应对':
-        return (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">已识别风险</label>
-            <textarea
-              value={risks}
-              onChange={(e) => setRisks(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="输入已识别的风险点..."
-            />
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  const isUnlimited = quotaInfo?.quota.limit === -1;
+  const isQuotaExhausted = !isUnlimited && quotaInfo && quotaInfo.quota.remaining <= 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 头部 */}
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回
-            </Button>
-            <h1 className="text-xl font-bold text-gray-900">AI标书编写</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button variant="ghost" onClick={() => router.push('/')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                返回
+              </Button>
+              <h1 className="text-xl font-bold text-gray-900">AI标书编写</h1>
+            </div>
+            {quotaInfo && (
+              <div className="flex items-center space-x-2">
+                <Badge variant={isUnlimited ? 'default' : isQuotaExhausted ? 'destructive' : 'secondary'}>
+                  {isUnlimited ? '无限额度' : `剩余 ${quotaInfo.quota.remaining} 次`}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* 额度警告 */}
+        {isQuotaExhausted && (
+          <Card className="mb-6 border-yellow-200 bg-yellow-50">
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                <div>
+                  <p className="font-medium text-yellow-800">本月免费额度已用完</p>
+                  <p className="text-sm text-yellow-700">
+                    请升级订阅或配置自己的API Key继续使用
+                  </p>
+                </div>
+                <Button size="sm" className="ml-auto" onClick={() => router.push('/pricing')}>
+                  升级订阅
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 左侧输入 */}
           <div className="space-y-6">
@@ -242,10 +189,112 @@ export default function AIWritePage() {
                   <CardTitle>填写信息</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {getInputFields()}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      招标文件摘要 <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={tenderSummary}
+                      onChange={(e) => setTenderSummary(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="粘贴招标文件的关键内容摘要..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      项目信息
+                    </label>
+                    <textarea
+                      value={projectInfo}
+                      onChange={(e) => setProjectInfo(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="项目名称、规模、背景等..."
+                    />
+                  </div>
+
+                  {(selectedType === '技术方案' || selectedType === '完整标书') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">技术要求</label>
+                      <textarea
+                        value={requirements}
+                        onChange={(e) => setRequirements(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="技术规格、功能需求等..."
+                      />
+                    </div>
+                  )}
+
+                  {(selectedType === '商务文件' || selectedType === '投标函' || selectedType === '完整标书') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">公司信息</label>
+                        <textarea
+                          value={companyInfo}
+                          onChange={(e) => setCompanyInfo(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="公司名称、规模、优势等..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">公司资质</label>
+                        <textarea
+                          value={companyQual}
+                          onChange={(e) => setCompanyQual(e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="ISO认证、资质证书、业绩案例等..."
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {(selectedType === '商务文件' || selectedType === '投标函') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">报价信息</label>
+                      <textarea
+                        value={priceInfo}
+                        onChange={(e) => setPriceInfo(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="报价金额、报价策略等..."
+                      />
+                    </div>
+                  )}
+
+                  {selectedType === '资质证明' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">资质要求</label>
+                      <textarea
+                        value={qualificationReqs}
+                        onChange={(e) => setQualificationReqs(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="招标文件中的资质要求..."
+                      />
+                    </div>
+                  )}
+
+                  {selectedType === '风险应对' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">已识别风险</label>
+                      <textarea
+                        value={risks}
+                        onChange={(e) => setRisks(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="已识别的风险点..."
+                      />
+                    </div>
+                  )}
+
                   <Button
                     onClick={handleGenerate}
-                    disabled={loading}
+                    disabled={loading || isQuotaExhausted === true}
                     className="w-full"
                   >
                     {loading ? (
