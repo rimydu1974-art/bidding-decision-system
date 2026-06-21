@@ -4,6 +4,9 @@ import { getAIService } from '@/lib/ai';
 import { TENDER_ANALYSIS_PROMPT } from '@/lib/ai/prompts/tender-analysis';
 import { Assessment } from '@/types';
 import { generateId } from '@/lib/utils';
+import { validateSession, getTokenFromRequest } from '@/lib/auth';
+import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
+import prisma from '@/lib/db';
 
 function safeParseDate(value: unknown): Date {
   if (!value) return new Date();
@@ -15,6 +18,23 @@ function safeParseDate(value: unknown): Date {
 
 export async function POST(request: NextRequest) {
   try {
+    // 验证登录
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    }
+
+    const session = await validateSession(token);
+    if (!session) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    }
+
+    // 检查额度
+    const quotaCheck = await checkAiQuota(session.user.id);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json({ error: quotaCheck.reason }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -48,13 +68,42 @@ export async function POST(request: NextRequest) {
     );
     console.log(`[Analyze] Prompt构建完成, 长度: ${prompt.length}`);
 
-    // 调用AI服务
-    const aiService = getAIService();
-    console.log(`[Analyze] 调用AI服务, 提供商: ${aiService.getDefaultProvider()}`);
+    // 获取用户信息
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    // AI调用
+    let aiResponse;
+    if (quotaCheck.useUserApiKey && user?.userApiKey) {
+      // 使用用户自己的API Key
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.userApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4096,
+          temperature: 0.1,
+        }),
+      });
+      const data = await response.json();
+      aiResponse = { content: data.choices[0]?.message?.content || '' };
+    } else {
+      // 使用平台API
+      const aiService = getAIService();
+      console.log(`[Analyze] 调用AI服务, 提供商: ${aiService.getDefaultProvider()}`);
+      aiResponse = await aiService.analyze(prompt);
+    }
     
-    const aiResponse = await aiService.analyze(prompt);
     console.log(`[Analyze] AI响应完成, 内容长度: ${aiResponse.content.length}`);
     console.log(`[Analyze] AI响应前200字: ${aiResponse.content.substring(0, 200)}`);
+
+    // 增加使用次数
+    await incrementAiUsage(session.user.id);
 
     // 解析AI响应
     let analysisResult;
