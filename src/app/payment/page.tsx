@@ -36,19 +36,19 @@ function PaymentContent() {
     note: '',
   });
 
-  // 收款信息 - 请替换为你自己的
+  // 收款信息
   const paymentInfo = {
     wechat: {
-      name: '张三',           // ← 替换：微信收款人姓名
-      account: '微信号',      // ← 替换：微信号或手机号
+      name: '杜珊',
+      account: 'D18978181131',
     },
     alipay: {
-      name: '李四',           // ← 替换：支付宝收款人姓名
-      account: '支付宝账号',  // ← 替换：支付宝账号
+      name: '杜珊',
+      account: '412721359@qq.com',
     },
-    bankCard: '银行卡号',     // ← 替换（可选）
-    bankName: '开户银行',     // ← 替换（可选）
-    holderName: '银行卡户名', // ← 替换（可选）
+    bankCard: '62145603011163273',
+    bankName: '广西南宁桃源支行',
+    holderName: '杜珊',
   };
 
   useEffect(() => {

@@ -5,7 +5,7 @@ import prisma from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 // 管理员邮箱列表（请替换为你自己的邮箱）
-const ADMIN_EMAILS = ['admin@example.com', 'rimydu@163.com'];
+const ADMIN_EMAILS = ['admin@example.com', 'rimydu@163.com', '412721359@qq.com'];
 
 // GET: 获取待审核订单列表
 export async function GET(request: NextRequest) {
