@@ -69,11 +69,12 @@ function Section({ title, icon, children, defaultOpen = true }: { title: string;
 }
 
 export function AssessmentDisplay({ assessment }: AssessmentDisplayProps) {
+  const risks = assessment.risks || [];
   const riskCounts = {
-    critical: assessment.risks.filter((r) => r.level === 'critical').length,
-    high: assessment.risks.filter((r) => r.level === 'high').length,
-    medium: assessment.risks.filter((r) => r.level === 'medium').length,
-    low: assessment.risks.filter((r) => r.level === 'low').length,
+    critical: risks.filter((r) => r.level === 'critical').length,
+    high: risks.filter((r) => r.level === 'high').length,
+    medium: risks.filter((r) => r.level === 'medium').length,
+    low: risks.filter((r) => r.level === 'low').length,
   };
 
   return (
@@ -359,10 +360,10 @@ export function AssessmentDisplay({ assessment }: AssessmentDisplayProps) {
       </Section>
 
       {/* 风险清单 */}
-      {assessment.risks.length > 0 && (
+      {risks.length > 0 && (
         <Section title="风险清单" icon={<AlertTriangle className="h-5 w-5 text-red-500" />}>
           <div className="space-y-3">
-            {assessment.risks.map((risk) => (
+            {risks.map((risk) => (
               <div
                 key={risk.id}
                 className={`p-4 rounded-lg border-l-4 ${

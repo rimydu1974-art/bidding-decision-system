@@ -99,12 +99,26 @@ export default function Home() {
     setSelectedId(item.id);
     setAssessment({
       id: item.id,
+      projectId: item.id,
       projectName: item.projectName,
       budget: item.budget,
+      deadline: '',
+      bidOpeningTime: '',
+      queryDeadline: '',
       riskLevel: item.riskLevel,
       recommendation: item.recommendation,
-      basicInfo: { projectName: item.projectName } as Assessment['basicInfo'],
-    } as Assessment);
+      basicInfo: { projectName: item.projectName } as any,
+      financialInfo: { budget: item.budget } as any,
+      scoringRules: { totalScore: 100, commercialScore: 30, technicalScore: 50, priceScore: 20, items: [] } as any,
+      risks: [],
+      checklist: [],
+      qualificationRequirements: [],
+      timeRequirements: {},
+      projectInfo: {},
+      phoneQuestions: [],
+      tasks: [],
+      createdAt: item.createdAt,
+    } as any);
     setShowUpload(false);
   };
 
