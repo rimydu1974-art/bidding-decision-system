@@ -19,6 +19,8 @@ export interface DocumentMetadata {
   createdAt?: Date;
 }
 
+export type SourceLocation = string;
+
 export interface Assessment {
   id: string;
   projectId: string;
@@ -30,12 +32,15 @@ export interface Assessment {
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   recommendation: 'bid' | 'caution' | 'no-bid';
   basicInfo: BasicInfo;
+  financialInfo: FinancialInfo;
   qualificationRequirements: QualificationRequirement[];
   scoringRules: ScoringRules;
+  timeRequirements: TimeRequirements;
+  projectInfo: ProjectInfo;
+  phoneQuestions: PhoneQuestion[];
   risks: RiskItem[];
-  scorePoints: ScorePoint[];
   tasks: TaskItem[];
-  technicalResponse: TechnicalResponse[];
+  checklist: ChecklistItem[];
   createdAt: Date;
 }
 
@@ -45,11 +50,29 @@ export interface BasicInfo {
   tenderer: string;
   contactPerson: string;
   contactPhone: string;
-  budget: number;
-  bidDeadline: Date;
-  bidOpeningTime: Date;
-  queryDeadline: Date;
+  agency: string;
+  informationSource: string;
+  caRequirement: string;
+  bidOpeningMethod: string;
+  bidOpeningLocation: string;
+  registrationMethod: string;
   location: string;
+  _source: Record<string, SourceLocation>;
+}
+
+export interface FinancialInfo {
+  fundingSource: string;
+  budget: number;
+  maxPrice: number;
+  preInvestment: number;
+  paymentMethod: string;
+  bidDocumentFee: number;
+  bidBond: number;
+  performanceBond: number;
+  qualityBond: number;
+  confidentialityBond: number;
+  agencyFee: number;
+  _source: Record<string, SourceLocation>;
 }
 
 export interface QualificationRequirement {
@@ -59,6 +82,17 @@ export interface QualificationRequirement {
   isSubstantial: boolean;
   isRequired: boolean;
   ourCapability: 'met' | 'partial' | 'not-met' | 'unknown';
+  jointBid: boolean;
+  subcontracting: boolean;
+  companyScaleReq: string;
+  specialQualification: string;
+  specialPersonnelReq: string;
+  specialNotes: string;
+  policyBenefits: string;
+  qualificationReview: string;
+  complianceReview: string;
+  creditRequirements: string;
+  _source: Record<string, SourceLocation>;
 }
 
 export interface ScoringRules {
@@ -66,7 +100,16 @@ export interface ScoringRules {
   commercialScore: number;
   technicalScore: number;
   priceScore: number;
+  winningMethod: string;
+  evaluationMethod: string;
+  objectiveSubjectiveRatio: string;
+  voidBidExplanation: string;
+  specialScoringRequirements: string;
   items: ScoringItem[];
+  requiredCompanyCertificates: string[];
+  requiredPersonnelCertificates: string[];
+  requiredProductReports: string[];
+  _source: Record<string, SourceLocation>;
 }
 
 export interface ScoringItem {
@@ -75,6 +118,46 @@ export interface ScoringItem {
   name: string;
   maxScore: number;
   description: string;
+  calculationMethod?: string;
+  _source?: SourceLocation;
+}
+
+export interface TimeRequirements {
+  documentAcquisitionDeadline: string;
+  preBidQuestionDeadline: string;
+  bidOpeningTime: string;
+  winningDeliveryTime: string;
+  contractPerformancePeriod: string;
+  _source: Record<string, SourceLocation>;
+}
+
+export interface ProjectInfo {
+  substantialRequirements: string;
+  deviationResult: string;
+  drawingsProvided: string;
+  drawingList: string;
+  drawingDepthRequirement: string;
+  siteSurveyRequired: string;
+  siteSurveyConfirmation: string;
+  controlPoints: string;
+  businessRequirements: string;
+  technicalRequirements: string;
+  coreServiceRequirements: string;
+  projectOutcomeRequirements: string;
+  finalDelivery: string;
+  specialProjectPoints: string;
+  originalCopies: string;
+  bidSubmissionMarking: string;
+  sealingRequirements: string;
+  acceptanceRequirements: string;
+  _source: Record<string, SourceLocation>;
+}
+
+export interface PhoneQuestion {
+  id: string;
+  question: string;
+  answer?: string;
+  _source?: SourceLocation;
 }
 
 export interface RiskItem {
@@ -86,15 +169,7 @@ export interface RiskItem {
   source: string;
   impact: string;
   suggestion: string;
-}
-
-export interface ScorePoint {
-  id: string;
-  category: string;
-  name: string;
-  maxScore: number;
-  description: string;
-  isImportant: boolean;
+  _sourceLocation?: SourceLocation;
 }
 
 export interface TaskItem {
@@ -106,13 +181,16 @@ export interface TaskItem {
   priority: 'low' | 'medium' | 'high';
 }
 
-export interface TechnicalResponse {
+export interface ChecklistItem {
   id: string;
-  requirement: string;
-  response: string;
-  isCompliant: 'compliant' | 'partial' | 'non-compliant' | 'not-applicable';
-  evidence?: string;
-  note?: string;
+  category: string;
+  item: string;
+  required: boolean;
+  status: 'pending' | 'prepared' | 'missing';
+  source: string;
+  scoreWeight: number;
+  note: string;
+  _sourceLocation?: SourceLocation;
 }
 
 export interface AIOptions {

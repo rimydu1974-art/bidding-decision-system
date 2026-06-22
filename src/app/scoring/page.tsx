@@ -75,7 +75,6 @@ export default function ScoringPage() {
   };
 
   const handleUpload = async () => {
-    // 检查是否上传了招标文件
     const hasTender = uploadedFiles.some((f) => f.category === 'tender');
     if (!hasTender) {
       alert('请先上传招标文件（用于提取评分标准）');
@@ -142,7 +141,6 @@ export default function ScoringPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 头部 */}
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center space-x-3">
@@ -158,7 +156,6 @@ export default function ScoringPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!scoring ? (
           <div className="space-y-6">
-            {/* 说明 */}
             <Card>
               <CardHeader>
                 <CardTitle>投标文件评分</CardTitle>
@@ -190,18 +187,15 @@ export default function ScoringPage() {
               </CardContent>
             </Card>
 
-            {/* 上传区域 */}
             <Card>
               <CardHeader>
                 <CardTitle>上传文件</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 提示 */}
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
                   必须上传招标文件，AI将从中提取评分标准和权重
                 </div>
 
-                {/* 文件分类选择 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     选择文件类型
@@ -224,7 +218,6 @@ export default function ScoringPage() {
                   </div>
                 </div>
 
-                {/* 文件上传按钮 */}
                 <div className="flex items-center space-x-4">
                   <input
                     ref={fileInputRef}
@@ -246,7 +239,6 @@ export default function ScoringPage() {
                   </span>
                 </div>
 
-                {/* 已上传文件列表 */}
                 {uploadedFiles.length > 0 && (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -281,7 +273,6 @@ export default function ScoringPage() {
                   </div>
                 )}
 
-                {/* 上传按钮 */}
                 <Button
                   onClick={handleUpload}
                   disabled={uploadedFiles.length === 0 || loading}
@@ -304,12 +295,10 @@ export default function ScoringPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* 返回按钮 */}
             <Button variant="ghost" onClick={() => setScoring(null)}>
               ← 重新上传
             </Button>
 
-            {/* 总分展示 */}
             <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
               <CardContent className="p-8">
                 <div className="flex items-center justify-between">
@@ -338,7 +327,6 @@ export default function ScoringPage() {
               </CardContent>
             </Card>
 
-            {/* 详细评分 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {scoring.results.map((result, index) => {
                 const criterion = scoring.criteria[index];
@@ -366,7 +354,6 @@ export default function ScoringPage() {
                         </div>
                       </div>
 
-                      {/* 进度条 */}
                       <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                         <div
                           className={`h-2 rounded-full transition-all duration-500 ${
@@ -380,7 +367,6 @@ export default function ScoringPage() {
                         ></div>
                       </div>
 
-                      {/* 建议 */}
                       <div className="p-3 bg-gray-50 rounded-lg">
                         <p className="text-sm text-gray-700">{result.suggestion}</p>
                       </div>
@@ -392,7 +378,6 @@ export default function ScoringPage() {
               })}
             </div>
 
-            {/* 原始分析 */}
             <Card>
               <CardHeader>
                 <CardTitle>AI详细分析</CardTitle>
