@@ -104,13 +104,27 @@ async function parseWord(
   buffer: ArrayBuffer
 ): Promise<{ content: string; tables: TableData[] }> {
   try {
-    const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
-    const content = result.value;
+    console.log('[Word] 开始解析, 大小:', buffer.byteLength);
+    const uint8Array = new Uint8Array(buffer);
+    const nodeBuffer = Buffer.from(uint8Array);
+    console.log('[Word] Buffer创建成功');
+    
+    const result = await mammoth.extractRawText({ buffer: nodeBuffer });
+    console.log('[Word] 解析完成, 内容长度:', result.value?.length || 0);
+    
+    const content = result.value || '';
+    
+    if (!content || content.trim().length < 5) {
+      console.warn('[Word] 解析内容过短或为空');
+      return { content: '[Word文件内容为空或无法解析，请尝试PDF版本]', tables: [] };
+    }
+    
     const tables = extractTablesFromText(content);
     return { content, tables };
   } catch (error) {
-    console.error('Word parsing error:', error);
-    return { content: '[Word解析失败]', tables: [] };
+    console.error('[Word] 解析错误:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    return { content: `[Word解析失败: ${errMsg}]`, tables: [] };
   }
 }
 

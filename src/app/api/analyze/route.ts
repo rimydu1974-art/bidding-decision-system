@@ -5,7 +5,7 @@ import { TENDER_ANALYSIS_PROMPT } from '@/lib/ai/prompts/tender-analysis';
 import { Assessment } from '@/types';
 import { generateId } from '@/lib/utils';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
-import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
+import { checkAiQuota, incrementAiUsageForFile } from '@/lib/quota';
 import prisma from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -104,8 +104,8 @@ export async function POST(request: NextRequest) {
     console.log(`[Analyze] AI响应完成, 内容长度: ${aiResponse.content.length}`);
     console.log(`[Analyze] AI响应前200字: ${aiResponse.content.substring(0, 200)}`);
 
-    // 增加使用次数
-    await incrementAiUsage(session.user.id);
+    // 增加使用次数（同文件只扣1次）
+    await incrementAiUsageForFile(session.user.id, file.name);
 
     // 解析AI响应
     let analysisResult;

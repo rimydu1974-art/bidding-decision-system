@@ -41,17 +41,16 @@ export async function checkAiQuota(userId: string): Promise<QuotaCheckResult> {
   if (isPro || isEnterprise || hasTempAccess) {
     return { 
       allowed: true, 
-      useUserApiKey: false // 订阅用户可以使用平台模型
+      useUserApiKey: false
     };
   }
 
   // 免费用户检查额度
   if (user.aiQuotaUsed >= FREE_MONTHLY_QUOTA) {
-    // 额度用完，检查是否有用户自己的API Key
     if (user.userApiKey && user.apiKeyVerified) {
       return { 
         allowed: true, 
-        useUserApiKey: true // 使用用户自己的API Key
+        useUserApiKey: true
       };
     }
     return { 
@@ -60,18 +59,42 @@ export async function checkAiQuota(userId: string): Promise<QuotaCheckResult> {
     };
   }
 
-  // 免费额度内
   return { 
     allowed: true, 
-    useUserApiKey: false // 免费用户使用平台额度
+    useUserApiKey: false
   };
 }
 
+// 检查文件是否已分析过（用于去重）
+export async function checkFileAnalyzed(userId: string, fileName: string): Promise<boolean> {
+  const project = await prisma.project.findFirst({
+    where: {
+      userId,
+      name: fileName,
+    },
+  });
+  return !!project;
+}
+
+// 分析文件时扣次（同文件只扣1次）
+export async function incrementAiUsageForFile(userId: string, fileName: string): Promise<void> {
+  const alreadyAnalyzed = await checkFileAnalyzed(userId, fileName);
+  if (!alreadyAnalyzed) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        aiQuotaUsed: { increment: 1 },
+        totalAiCalls: { increment: 1 },
+      },
+    });
+  }
+}
+
+// AI写标书不扣次（订阅功能的一部分）
 export async function incrementAiUsage(userId: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: {
-      aiQuotaUsed: { increment: 1 },
       totalAiCalls: { increment: 1 },
     },
   });

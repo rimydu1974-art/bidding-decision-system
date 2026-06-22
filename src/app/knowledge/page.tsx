@@ -87,6 +87,10 @@ export default function KnowledgePage() {
   const [feishuSpaces, setFeishuSpaces] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpace, setSelectedSpace] = useState('');
   const [showFeishuSync, setShowFeishuSync] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCategory, setUploadCategory] = useState('其他');
 
   // 表单状态
   const [formTitle, setFormTitle] = useState('');
@@ -191,6 +195,37 @@ export default function KnowledgePage() {
       loadFeishuSpaces();
     }
   }, [showFeishuSync]);
+
+  const handleFileUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('category', uploadCategory);
+
+      const response = await fetch('/api/knowledge/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setShowUploadModal(false);
+        setUploadFile(null);
+        setUploadCategory('其他');
+        loadKnowledge();
+        alert('文件上传成功');
+      } else {
+        alert(data.error || '上传失败');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleAdd = async () => {
     try {
@@ -301,6 +336,10 @@ export default function KnowledgePage() {
               <Button variant="outline" onClick={() => setShowFeishuSync(true)}>
                 <Cloud className="h-4 w-4 mr-2" />
                 飞书同步
+              </Button>
+              <Button variant="outline" onClick={() => setShowUploadModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                上传文件
               </Button>
               <Button onClick={() => setShowAddModal(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -593,6 +632,56 @@ export default function KnowledgePage() {
                   </>
                 ) : (
                   '开始同步'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 文件上传模态框 */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md mx-4">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold">上传文件到知识库</h2>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+                <p className="text-xs text-gray-500 mt-1">支持 PDF、Word、Excel、文本文件</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                <select
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {CATEGORIES.filter((c) => c !== '全部').map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end space-x-3">
+              <Button variant="outline" onClick={() => { setShowUploadModal(false); setUploadFile(null); }}>
+                取消
+              </Button>
+              <Button onClick={handleFileUpload} disabled={!uploadFile || uploading}>
+                {uploading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    上传中...
+                  </>
+                ) : (
+                  '上传'
                 )}
               </Button>
             </div>
