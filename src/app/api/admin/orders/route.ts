@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // 管理员邮箱列表（请替换为你自己的邮箱）
 const ADMIN_EMAILS = ['admin@example.com', 'rimydu@163.com'];
 

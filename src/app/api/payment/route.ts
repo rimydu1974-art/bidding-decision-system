@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 import { createAlipayOrder, createWechatPayOrder } from '@/lib/payment';
 
 // POST: 创建支付订单

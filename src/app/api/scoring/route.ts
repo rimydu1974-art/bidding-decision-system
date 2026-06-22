@@ -5,6 +5,8 @@ import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 interface ScoringCriteria {
   name: string;
   weight: number;

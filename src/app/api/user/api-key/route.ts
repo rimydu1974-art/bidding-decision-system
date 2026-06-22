@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // POST: 保存/验证用户自己的API Key
 export async function POST(request: NextRequest) {
   try {

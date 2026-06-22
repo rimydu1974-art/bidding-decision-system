@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // 免费版每月AI额度
 const FREE_MONTHLY_QUOTA = 20;
 

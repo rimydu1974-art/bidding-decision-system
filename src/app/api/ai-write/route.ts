@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAIService } from '@/lib/ai';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
 
 const WRITE_PROMPTS: Record<string, string> = {

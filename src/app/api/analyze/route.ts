@@ -8,6 +8,8 @@ import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import { checkAiQuota, incrementAiUsage } from '@/lib/quota';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 function safeParseDate(value: unknown): Date {
   if (!value) return new Date();
   if (value instanceof Date) return isNaN(value.getTime()) ? new Date() : value;

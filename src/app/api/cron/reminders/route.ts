@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 import { sendBidReminder, sendQueryDeadlineReminder, sendSubscriptionExpiry } from '@/lib/feishu/notify';
 
 // GET: 检查并发送提醒（定时任务调用）

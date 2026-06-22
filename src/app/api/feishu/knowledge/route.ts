@@ -3,6 +3,8 @@ import { getKnowledgeBaseList, getKnowledgeBaseNodes, getDocumentContent } from 
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);

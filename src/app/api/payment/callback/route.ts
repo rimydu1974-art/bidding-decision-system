@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // POST: 支付宝/微信支付回调通知
 export async function POST(request: NextRequest) {
   try {
