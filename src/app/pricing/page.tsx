@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Navigation } from '@/components/navigation';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, ArrowLeft, CreditCard, Zap, Building, Star } from 'lucide-react';
+import { CheckCircle, CreditCard, Zap, Building, Star } from 'lucide-react';
 
 interface PricingPlan {
   id: string;
@@ -63,21 +64,10 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 头部 */}
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回
-            </Button>
-            <h1 className="text-xl font-bold text-gray-900">定价方案</h1>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Navigation />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         {/* 标题 */}
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900">选择适合您的方案</h2>

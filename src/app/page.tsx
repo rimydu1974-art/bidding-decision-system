@@ -4,15 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FileUpload } from '@/components/upload/file-upload';
 import { AssessmentDisplay } from '@/components/assessment/assessment-display';
 import { Assessment } from '@/types';
-import { FileText, AlertTriangle, CheckCircle, User, LogOut, History, Download, BarChart3, Folder, CreditCard, Code } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-}
+import { Navigation } from '@/components/navigation';
+import { AlertTriangle, CheckCircle, FileText, Download, ArrowLeft, Clock, Plus, FolderOpen, BarChart3 } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -28,22 +21,21 @@ export default function Home() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      const data = await response.json();
-      setUser(data.user);
-    } catch {
-      setUser(null);
-    }
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        setIsLoggedIn(!!data.user);
+        if (data.user) loadHistory();
+      })
+      .catch(() => setIsLoggedIn(false));
   }, []);
 
   const loadHistory = useCallback(async () => {
-    if (!user) return;
     try {
       const response = await fetch('/api/history');
       const data = await response.json();
@@ -51,48 +43,28 @@ export default function Home() {
     } catch {
       console.error('Failed to load history');
     }
-  }, [user]);
-
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  useEffect(() => {
-    if (user) {
-      loadHistory();
-    }
-  }, [user, loadHistory]);
+  }, []);
 
   const handleUpload = async (file: File) => {
     setIsProcessing(true);
     setError(null);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('/api/analyze', { method: 'POST', body: formData });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || '分析失败');
       }
-
       const data = await response.json();
       setAssessment(data.assessment);
-
-      if (user) {
+      setSelectedId(data.assessment.id);
+      if (isLoggedIn) {
         try {
           await fetch('/api/history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...data.assessment,
-              fileName: file.name,
-            }),
+            body: JSON.stringify({ ...data.assessment, fileName: file.name }),
           });
           loadHistory();
         } catch {
@@ -106,18 +78,27 @@ export default function Home() {
     }
   };
 
+  const handleSelectHistory = (item: HistoryItem) => {
+    setSelectedId(item.id);
+    setAssessment({
+      id: item.id,
+      projectName: item.projectName,
+      budget: item.budget,
+      riskLevel: item.riskLevel,
+      recommendation: item.recommendation,
+      basicInfo: { projectName: item.projectName } as Assessment['basicInfo'],
+    } as Assessment);
+  };
+
   const handleDownloadReport = async () => {
     if (!assessment) return;
-
     try {
       const response = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assessment),
       });
-
       if (!response.ok) throw new Error('下载失败');
-
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -132,233 +113,169 @@ export default function Home() {
     }
   };
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setHistory([]);
-    window.location.reload();
-  };
+  const showDashboard = !assessment && !isProcessing;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 头部 */}
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">投标决策支持系统</h1>
-                <p className="text-sm text-gray-500">Bidding Decision Support System</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <Navigation />
 
-            <div className="flex items-center space-x-4">
-              {user ? (
-                <>
-                  <Link href="/knowledge" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <FileText className="h-5 w-5" />
-                    <span>知识库</span>
-                  </Link>
-                  <Link href="/ai-write" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <FileText className="h-5 w-5" />
-                    <span>AI写标书</span>
-                  </Link>
-                  <Link href="/scoring" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <BarChart3 className="h-5 w-5" />
-                    <span>评分预测</span>
-                  </Link>
-                  <Link href="/projects" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <Folder className="h-5 w-5" />
-                    <span>项目管理</span>
-                  </Link>
-                  <Link href="/pricing" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <CreditCard className="h-5 w-5" />
-                    <span>定价</span>
-                  </Link>
-                  <Link href="/api-docs" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <Code className="h-5 w-5" />
-                    <span>API</span>
-                  </Link>
-                  <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center space-x-1 text-gray-600 hover:text-gray-900"
-                  >
-                    <History className="h-5 w-5" />
-                    <span>历史记录</span>
-                  </button>
-                  <Link href="/user-center" className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
-                    <User className="h-5 w-5" />
-                    <span>{user.name || user.email}</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center space-x-1 text-gray-500 hover:text-red-600"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </button>
-                </>
+      <div className="flex-1 flex overflow-hidden">
+        {/* 左侧栏 */}
+        <aside className="w-72 bg-white border-r flex flex-col flex-shrink-0">
+          {/* 新建按钮 */}
+          <div className="p-4 border-b">
+            <button
+              onClick={() => { setAssessment(null); setSelectedId(null); }}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              <span>新建分析</span>
+            </button>
+          </div>
+
+          {/* 项目列表 */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">历史项目</div>
+              {history.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>暂无项目</p>
+                </div>
               ) : (
-                <div className="flex items-center space-x-3">
-                  <Link href="/login" className="text-gray-600 hover:text-gray-900">
-                    登录
-                  </Link>
-                  <Link href="/register">
-                    <Button>注册</Button>
-                  </Link>
+                <div className="space-y-1">
+                  {history.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelectHistory(item)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedId === item.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      <div className="font-medium text-sm text-gray-900 truncate">{item.projectName}</div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString('zh-CN')}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          item.recommendation === 'bid' ? 'bg-green-100 text-green-700' :
+                          item.recommendation === 'caution' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {item.recommendation === 'bid' ? '建议投' : item.recommendation === 'caution' ? '谨慎投' : '不建议投'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </header>
+        </aside>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 历史记录面板 */}
-        {showHistory && user && (
-          <div className="mb-8 p-6 bg-white rounded-lg shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">历史评估记录</h3>
-            {history.length === 0 ? (
-              <p className="text-gray-500">暂无历史记录</p>
-            ) : (
-              <div className="space-y-3">
-                {history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                  >
-                    <div>
-                      <div className="font-medium">{item.projectName}</div>
-                      <div className="text-sm text-gray-500">
-                        {item.fileName} · {new Date(item.createdAt).toLocaleDateString('zh-CN')}
-                      </div>
+        {/* 主内容区 */}
+        <main className="flex-1 overflow-y-auto">
+          {showDashboard ? (
+            <div className="p-8">
+              {/* 欢迎 + 上传 */}
+              <div className="max-w-3xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">上传招标文件开始分析</h2>
+                  <p className="text-gray-500">支持 PDF、Word、Excel 等格式，3分钟生成完整评估报告</p>
+                </div>
+
+                <FileUpload onUpload={handleUpload} isProcessing={isProcessing} />
+
+                {error && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600 text-center text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* 快捷统计 */}
+                {isLoggedIn && history.length > 0 && (
+                  <div className="mt-8 grid grid-cols-3 gap-4">
+                    <div className="bg-white rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-600">{history.length}</div>
+                      <div className="text-sm text-gray-500 mt-1">历史项目</div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <span className={`px-2 py-1 text-xs rounded ${
-                        item.recommendation === 'bid' ? 'bg-green-100 text-green-800' :
-                        item.recommendation === 'caution' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {item.recommendation === 'bid' ? '建议投' :
-                         item.recommendation === 'caution' ? '谨慎投' : '不建议投'}
-                      </span>
+                    <div className="bg-white rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {history.filter((h) => h.recommendation === 'bid').length}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">建议投标</div>
+                    </div>
+                    <div className="bg-white rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {history.filter((h) => h.riskLevel === 'high' || h.riskLevel === 'critical').length}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">高风险项目</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                )}
 
-        {!assessment ? (
-          <div className="space-y-8">
-            {/* 价值主张 */}
-            <div className="text-center space-y-4">
-              <h2 className="text-3xl font-bold text-gray-900">
-                3分钟生成投标决策评估表
-              </h2>
-              <p className="text-xl text-gray-600">
-                提前发现废标风险，判断是否值得投
-              </p>
-              <div className="flex justify-center space-x-8 text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span>免费基础评估</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  <span>废标风险识别</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5 text-blue-500" />
-                  <span>智能投标建议</span>
+                {/* 使用流程 */}
+                <div className="mt-8 bg-white rounded-lg border p-6">
+                  <h3 className="font-semibold text-gray-800 mb-4">使用流程</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { step: '1', label: '上传招标文件', desc: '支持PDF、Word、Excel等格式' },
+                      { step: '2', label: 'AI提取信息', desc: '自动提取7类关键信息并识别风险' },
+                      { step: '3', label: '获取评估报告', desc: '一键生成投标决策建议' },
+                    ].map((item) => (
+                      <div key={item.step} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <span className="h-6 w-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {item.step}
+                        </span>
+                        <div>
+                          <div className="font-medium text-sm text-gray-800">{item.label}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{item.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* 上传区域 */}
-            <FileUpload onUpload={handleUpload} isProcessing={isProcessing} />
-
-            {/* 错误提示 */}
-            {error && (
-              <div className="max-w-2xl mx-auto p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600 text-center">{error}</p>
-              </div>
-            )}
-
-            {/* 功能说明 */}
-            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-              <div className="text-center p-6 bg-white rounded-lg shadow-sm">
-                <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">上传招标文件</h3>
-                <p className="text-sm text-gray-500">
-                  支持 PDF、Word、Excel 格式的招标文件
-                </p>
-              </div>
-              <div className="text-center p-6 bg-white rounded-lg shadow-sm">
-                <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <AlertTriangle className="h-6 w-6 text-orange-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">智能风险识别</h3>
-                <p className="text-sm text-gray-500">
-                  自动识别废标风险、得分风险、时间风险
-                </p>
-              </div>
-              <div className="text-center p-6 bg-white rounded-lg shadow-sm">
-                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">投标决策建议</h3>
-                <p className="text-sm text-gray-500">
-                  基于分析结果给出投/不投/谨慎投建议
-                </p>
+          ) : isProcessing ? (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="animate-spin h-12 w-12 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4" />
+                <p className="text-gray-600 font-medium">AI 正在分析招标文件...</p>
+                <p className="text-gray-400 text-sm mt-1">预计需要 1-3 分钟</p>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setAssessment(null)}
-                className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
-              >
-                <span>← 返回上传</span>
-              </button>
-              <button
-                onClick={handleDownloadReport}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Download className="h-4 w-4" />
-                <span>下载报告</span>
-              </button>
+          ) : assessment ? (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={() => { setAssessment(null); setSelectedId(null); }}
+                  className="text-blue-600 hover:text-blue-700 flex items-center space-x-1 text-sm"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>返回</span>
+                </button>
+                <button
+                  onClick={handleDownloadReport}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>下载Excel报告</span>
+                </button>
+              </div>
+
+              <div className="bg-white rounded-lg border p-4 mb-4">
+                <h2 className="text-xl font-bold text-gray-900">{assessment.basicInfo.projectName}</h2>
+                {assessment.basicInfo.projectCode && (
+                  <p className="text-gray-500 mt-1 text-sm">项目编号：{assessment.basicInfo.projectCode}</p>
+                )}
+              </div>
+
+              <AssessmentDisplay assessment={assessment} />
             </div>
-
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {assessment.basicInfo.projectName}
-              </h2>
-              <p className="text-gray-500 mt-1">
-                {assessment.basicInfo.projectCode && `项目编号：${assessment.basicInfo.projectCode}`}
-              </p>
-            </div>
-
-            <AssessmentDisplay assessment={assessment} />
-          </div>
-        )}
-      </main>
-
-      {/* 底部 */}
-      <footer className="bg-white border-t mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-gray-500 text-sm">
-            © 2024 投标决策支持系统 · 帮助企业做出明智的投标决策
-          </p>
-        </div>
-      </footer>
+          ) : null}
+        </main>
+      </div>
     </div>
   );
 }
