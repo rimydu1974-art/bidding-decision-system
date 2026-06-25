@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sendSMS } from '@/lib/sms';
 
 const smsStore = new Map<string, { code: string; expires: number }>();
 
@@ -15,7 +16,14 @@ export async function POST(request: NextRequest) {
 
     smsStore.set(phone, { code, expires });
 
-    console.log(`[SMS] ${phone} -> ${code}`);
+    // 使用SMS服务发送验证码
+    const result = await sendSMS(phone, code);
+    
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || '发送失败' }, { status: 500 });
+    }
+
+    console.log(`[SMS] ${phone} -> ${code} (MessageID: ${result.messageId})`);
 
     return NextResponse.json({ success: true, message: '验证码已发送' });
   } catch {

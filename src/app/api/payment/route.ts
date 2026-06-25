@@ -1,70 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { createPaymentOrder, getPaymentConfig } from '@/lib/payment';
 
-export const dynamic = 'force-dynamic';
-import { createAlipayOrder, createWechatPayOrder } from '@/lib/payment';
-
-// POST: 创建支付订单
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromRequest(request);
+    const body = await request.json();
+    const { projectId, planId, amount, paymentMethod } = body;
 
+    // 获取用户
+    const cookieHeader = request.headers.get('cookie');
+    const cookies = cookieHeader?.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    const token = cookies?.['auth-token'];
     if (!token) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    const session = await validateSession(token);
-
-    if (!session) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 });
-    }
-
-    const { planId, paymentMethod } = await request.json();
-
-    if (!planId) {
-      return NextResponse.json({ error: '无效的订阅方案' }, { status: 400 });
-    }
-
-    // 从数据库获取定价方案
-    const plan = await prisma.pricingPlan.findFirst({
-      where: { name: planId, isActive: true },
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
     });
 
-    if (!plan) {
-      return NextResponse.json({ error: '无效的订阅方案' }, { status: 400 });
+    if (!session || session.expiresAt < new Date()) {
+      return NextResponse.json({ error: '登录已过期' }, { status: 401 });
     }
 
-    // 生成订单号
-    const orderNo = `ORD${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const user = session.user;
 
-    // 保存订单到数据库
+    // 生成订单号
+    const orderNo = `ORD${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+    // 创建订单
     const order = await prisma.order.create({
       data: {
+        userId: user.id,
         orderNo,
-        userId: session.user.id,
-        planName: planId,
-        amount: plan.price,
+        planName: planId || 'single',
+        amount: amount || 1900, // 默认19元
+        paymentMethod: paymentMethod || 'wechat',
         paymentStatus: 'pending',
-        paymentMethod: paymentMethod || 'alipay',
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30分钟过期
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24小时过期
       },
     });
 
-    // 调用支付接口
-    const orderInfo = {
-      orderNo: order.orderNo,
-      amount: Math.round(plan.price * 100), // 转换为分
-      description: `投标AI - ${plan.displayName}`,
-      userId: session.user.id,
-    };
-
-    let paymentResult;
-    if (paymentMethod === 'wechat') {
-      paymentResult = await createWechatPayOrder(orderInfo);
-    } else {
-      paymentResult = await createAlipayOrder(orderInfo);
-    }
+    // 调用支付服务创建支付
+    const paymentResult = await createPaymentOrder({
+      orderNo,
+      amount: order.amount,
+      description: `投标AI - ${order.planName}`,
+      userId: user.id,
+      notifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback`,
+    });
 
     if (!paymentResult.success) {
       return NextResponse.json({ error: paymentResult.error || '创建支付失败' }, { status: 500 });
@@ -72,80 +62,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      order: {
-        id: order.id,
-        orderNo: order.orderNo,
-        amount: order.amount,
-        planName: order.planName,
-        status: order.paymentStatus,
-        createdAt: order.createdAt,
-      },
-      payment: {
-        payUrl: paymentResult.payUrl,
-        qrCode: paymentResult.qrCode,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      },
+      orderNo: order.orderNo,
+      payUrl: paymentResult.payUrl,
+      qrCode: paymentResult.qrCode,
+      prepayId: paymentResult.prepayId,
     });
   } catch (error) {
-    console.error('Create payment error:', error);
-    return NextResponse.json(
-      { error: '创建订单失败' },
-      { status: 500 }
-    );
-  }
-}
-
-// GET: 查询订单状态
-export async function GET(request: NextRequest) {
-  try {
-    const token = getTokenFromRequest(request);
-
-    if (!token) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 });
-    }
-
-    const session = await validateSession(token);
-
-    if (!session) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('orderId');
-
-    if (!orderId) {
-      return NextResponse.json({ error: '缺少订单ID' }, { status: 400 });
-    }
-
-    // 从数据库查询订单
-    const order = await prisma.order.findFirst({
-      where: {
-        OR: [{ id: orderId }, { orderNo: orderId }],
-        userId: session.user.id,
-      },
-    });
-
-    if (!order) {
-      return NextResponse.json({ error: '订单不存在' }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      order: {
-        id: order.id,
-        orderNo: order.orderNo,
-        amount: order.amount,
-        planName: order.planName,
-        status: order.paymentStatus,
-        paymentMethod: order.paymentMethod,
-        paidAt: order.paidAt,
-        createdAt: order.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error('Query payment error:', error);
-    return NextResponse.json(
-      { error: '查询订单失败' },
-      { status: 500 }
-    );
+    console.error('[Payment] 创建支付失败:', error);
+    return NextResponse.json({ error: '创建支付失败' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { verifyPaymentNotification } from '@/lib/payment';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest) {
     const { orderNo, status, transactionId, paymentMethod } = body;
 
     console.log('[Payment Callback] 收到支付回调:', { orderNo, status, transactionId });
+
+    // 验证通知签名
+    const isValid = await verifyPaymentNotification(body, paymentMethod || 'wechat');
+    if (!isValid) {
+      console.error('[Payment Callback] 签名验证失败');
+      return NextResponse.json({ error: '签名验证失败' }, { status: 400 });
+    }
 
     // 查询订单
     const order = await prisma.order.findFirst({
