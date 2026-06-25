@@ -24,9 +24,13 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   async analyze(prompt: string, options?: AIOptions): Promise<AIResponse> {
     const model = options?.model || this.defaultModel;
-    console.log(`[${this.displayName}] 调用API, 模型: ${model}`);
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    // 智能检测baseUrl是否已包含版本路径，避免重复拼接 /v1
+    const url = this.baseUrl.endsWith('/v1') || this.baseUrl.endsWith('/v4')
+      ? `${this.baseUrl}/chat/completions`
+      : `${this.baseUrl}/v1/chat/completions`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -35,8 +39,8 @@ export class OpenAICompatibleProvider implements AIProvider {
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: options?.temperature || 0.7,
-        max_tokens: options?.maxTokens || 4096,
+        temperature: options?.temperature ?? 0.1,
+        max_tokens: options?.maxTokens ?? 8192,
       }),
     });
 

@@ -137,6 +137,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 验证AI返回是否包含7个必要字段
+    const requiredFields = [
+      'basicInfo', 'financialInfo', 'qualificationRequirements',
+      'scoringRules', 'timeRequirements', 'projectInfo', 'phoneQuestions'
+    ];
+    const missingFields = requiredFields.filter(field => !analysisResult[field]);
+    
+    if (missingFields.length > 0) {
+      console.warn(`[Analyze] AI返回缺少字段: ${missingFields.join(', ')}`);
+      // 为缺失的字段提供默认值
+      for (const field of missingFields) {
+        if (field === 'phoneQuestions') {
+          analysisResult[field] = [];
+        } else if (field === 'qualificationRequirements') {
+          analysisResult[field] = [];
+        } else {
+          analysisResult[field] = {};
+        }
+      }
+    }
+
     const _sources = analysisResult._sources || {};
     const assessment = {
       id: generateId(),
@@ -199,9 +220,11 @@ export async function POST(request: NextRequest) {
       ),
       scoringRules: {
         totalScore: Number(analysisResult.scoringRules?.totalScore) || 100,
-        commercialScore: Number(analysisResult.scoringRules?.commercialScore) || 30,
-        technicalScore: Number(analysisResult.scoringRules?.technicalScore) || 50,
-        priceScore: Number(analysisResult.scoringRules?.priceScore) || 20,
+        objectiveScore: Number(analysisResult.scoringRules?.objectiveScore) || 0,
+        subjectiveScore: Number(analysisResult.scoringRules?.subjectiveScore) || 0,
+        priceScore: Number(analysisResult.scoringRules?.priceScore) || 0,
+        commercialScore: Number(analysisResult.scoringRules?.commercialScore) || 0,
+        technicalScore: Number(analysisResult.scoringRules?.technicalScore) || 0,
         winningMethod: analysisResult.scoringRules?.winningMethod || '',
         evaluationMethod: analysisResult.scoringRules?.evaluationMethod || '',
         objectiveSubjectiveRatio: analysisResult.scoringRules?.objectiveSubjectiveRatio || '',
@@ -257,6 +280,9 @@ export async function POST(request: NextRequest) {
           id: generateId(),
           question: q.question || '',
           answer: q.answer || '',
+          reason: q.reason || '',
+          priority: q.priority || 'medium',
+          category: q.category || '其他',
           _source: q._source || '',
         })
       ),

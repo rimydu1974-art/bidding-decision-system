@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Navigation } from '@/components/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Sidebar } from '@/components/sidebar';
 import {
-  Key,
-  BarChart3,
+  User,
   CreditCard,
-  CheckCircle,
-  AlertTriangle,
+  BarChart3,
+  Key,
   Eye,
   EyeOff,
+  Save,
+  Crown,
 } from 'lucide-react';
 
 interface QuotaInfo {
@@ -22,8 +20,9 @@ interface QuotaInfo {
     plan: string;
     isPro: boolean;
     isEnterprise: boolean;
-    hasTempAccess: boolean;
-    tempExpiresAt: string | null;
+    email: string;
+    name: string;
+    phone: string;
     planExpiresAt: string | null;
   };
   quota: {
@@ -49,261 +48,182 @@ export default function UserCenterPage() {
 
   const loadQuotaInfo = async () => {
     try {
-      const response = await fetch('/api/user/quota');
-      const data = await response.json();
-      if (response.ok) {
-        setQuotaInfo(data);
-      }
-    } catch (error) {
-      console.error('Failed to load quota info:', error);
+      const res = await fetch('/api/user/quota');
+      const data = await res.json();
+      setQuotaInfo(data);
+    } catch (err) {
+      console.error('Failed to load quota:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveApiKey = async () => {
-    if (!apiKey.startsWith('sk-')) {
-      alert('无效的API Key格式');
-      return;
-    }
-
     setSaving(true);
     try {
-      const response = await fetch('/api/user/api-key', {
+      await fetch('/api/user/api-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey }),
       });
-
-      const data = await response.json();
-      if (response.ok) {
-        alert('API Key保存成功');
-        setApiKey('');
-        loadQuotaInfo();
-      } else {
-        alert(data.error || '保存失败');
-      }
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-      alert('保存失败');
+      loadQuotaInfo();
+    } catch (err) {
+      console.error('Failed to save API key:', err);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteApiKey = async () => {
-    if (!confirm('确定要删除API Key吗？')) return;
-
-    try {
-      const response = await fetch('/api/user/api-key', {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        alert('API Key已删除');
-        loadQuotaInfo();
-      }
-    } catch (error) {
-      console.error('Failed to delete API key:', error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Navigation />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
+  const quota = quotaInfo?.quota;
+  const circumference = 2 * Math.PI * 48;
+  const usagePct = quota ? (quota.used / (quota.limit || 20)) * 100 : 0;
+  const offset = circumference - (usagePct / 100) * circumference;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Navigation />
+    <div className="flex h-screen overflow-hidden bg-[#0A0A12]">
+      <Sidebar />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 w-full">
-        {/* 当前套餐 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CreditCard className="h-5 w-5 mr-2" />
-              当前套餐
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl font-bold">
-                    {quotaInfo?.user.plan === 'enterprise'
-                      ? '企业版'
-                      : quotaInfo?.user.plan === 'pro'
-                      ? '专业版'
-                      : '免费版'}
-                  </span>
-                  {quotaInfo?.user.isPro && (
-                    <Badge className="bg-blue-100 text-blue-800">专业版</Badge>
-                  )}
-                  {quotaInfo?.user.isEnterprise && (
-                    <Badge className="bg-purple-100 text-purple-800">企业版</Badge>
-                  )}
-                  {quotaInfo?.user.hasTempAccess && (
-                    <Badge className="bg-green-100 text-green-800">临时权限</Badge>
-                  )}
-                </div>
-                {quotaInfo?.user.planExpiresAt && (
-                  <p className="text-gray-500 mt-1">
-                    有效期至：{new Date(quotaInfo.user.planExpiresAt).toLocaleDateString('zh-CN')}
-                  </p>
-                )}
-                {quotaInfo?.user.tempExpiresAt && (
-                  <p className="text-gray-500 mt-1">
-                    临时权限至：{new Date(quotaInfo.user.tempExpiresAt).toLocaleDateString('zh-CN')}
-                  </p>
-                )}
-              </div>
-              <Button onClick={() => router.push('/pricing')}>
-                {quotaInfo?.user.plan === 'free' ? '升级订阅' : '管理订阅'}
-              </Button>
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-[1000px] mx-auto">
+          <h1 className="text-2xl font-bold text-white mb-6">用户中心</h1>
+
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin h-8 w-8 border-4 border-[#7c3aed]/20 border-t-[#7c3aed] rounded-full mx-auto" />
+              <p className="mt-4 text-[#6b7280]">加载中...</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* AI额度 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="h-5 w-5 mr-2" />
-              AI使用额度
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {quotaInfo?.quota.limit === -1 ? (
-              <div className="text-center py-4">
-                <div className="text-4xl font-bold text-green-600">无限制</div>
-                <p className="text-gray-500 mt-2">您的套餐享有无限AI调用额度</p>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-600">本月已使用</span>
-                  <span className="font-semibold">
-                    {quotaInfo?.quota.used} / {quotaInfo?.quota.limit} 次
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className="bg-blue-600 h-3 rounded-full"
-                    style={{
-                      width: `${((quotaInfo?.quota.used || 0) / (quotaInfo?.quota.limit || 20)) * 100}%`,
-                    }}
-                  ></div>
-                </div>
-                <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
-                  <span>剩余 {quotaInfo?.quota.remaining} 次</span>
-                  <span>
-                    下次重置：每月1日
-                  </span>
-                </div>
-                {quotaInfo?.quota.remaining === 0 && !quotaInfo?.hasApiKey && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center text-yellow-800">
-                      <AlertTriangle className="h-5 w-5 mr-2" />
-                      <span>额度已用完，请升级订阅或配置自己的API Key</span>
-                    </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Account Info */}
+              <div className="glass-card p-6">
+                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#a78bfa]" />
+                  账号信息
+                </h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">手机号</span>
+                    <span className="text-[#e2e8f0]">{quotaInfo?.user?.phone || '未绑定'}</span>
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* API Key管理 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Key className="h-5 w-5 mr-2" />
-              API Key管理
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-600">
-              配置自己的DeepSeek API Key，额度用完后可继续使用AI功能
-            </p>
-
-            {quotaInfo?.hasApiKey ? (
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>API Key已配置</span>
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">邮箱</span>
+                    <span className="text-[#e2e8f0]">{quotaInfo?.user?.email || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">姓名</span>
+                    <span className="text-[#e2e8f0]">{quotaInfo?.user?.name || '-'}</span>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDeleteApiKey}>
-                  删除
-                </Button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="relative">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showApiKey ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
+
+              {/* Plan Info */}
+              <div className="glass-card p-6">
+                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-[#f59e0b]" />
+                  套餐信息
+                </h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">当前套餐</span>
+                    <span className="text-[#e2e8f0] font-medium">
+                      {quotaInfo?.user?.plan === 'pro' ? '专业版' : quotaInfo?.user?.plan === 'enterprise' ? '企业版' : '免费版'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">剩余次数</span>
+                    <span className="text-[#e2e8f0]">{quota?.remaining ?? 20} 次</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6b7280]">到期时间</span>
+                    <span className="text-[#e2e8f0]">
+                      {quotaInfo?.user?.planExpiresAt
+                        ? new Date(quotaInfo.user.planExpiresAt).toLocaleDateString('zh-CN')
+                        : '永久'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Usage Quota */}
+              <div className="glass-card p-6">
+                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#06b6d4]" />
+                  AI使用额度
+                </h3>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(46,46,66,0.4)" strokeWidth="8" />
+                      <circle
+                        cx="60" cy="60" r="48" fill="none" stroke="#a78bfa" strokeWidth="8"
+                        strokeDasharray={circumference} strokeDashoffset={offset}
+                        strokeLinecap="round" transform="rotate(-90 60 60)"
+                      />
+                      <text x="60" y="57" textAnchor="middle" fill="white" fontSize="20" fontWeight="700">
+                        {quota?.used || 0}
+                      </text>
+                      <text x="60" y="75" textAnchor="middle" fill="#6b7280" fontSize="11">
+                        / {quota?.limit || 20}
+                      </text>
+                    </svg>
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-[#e2e8f0]">
+                      本月已用 <b className="text-white">{quota?.used || 0}</b> / {quota?.limit || 20} 次
+                    </p>
+                    <p className="text-[#6b7280] text-xs mt-1">免费版每月 {quota?.limit || 20} 次深度分析</p>
+                    <button onClick={() => router.push('/pricing')} className="btn-ghost text-xs mt-3">
+                      升级无限制 →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Key */}
+              <div className="glass-card p-6">
+                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <Key className="w-4 h-4 text-[#10b981]" />
+                  API密钥管理
+                </h3>
+                <div className="space-y-3">
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="input-field pr-10"
+                      placeholder="输入您的API Key"
+                    />
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280] hover:text-[#e2e8f0]"
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <button onClick={handleSaveApiKey} disabled={saving} className="btn-primary w-full justify-center disabled:opacity-50">
+                    <Save className="w-4 h-4" />
+                    {saving ? '保存中...' : '保存API Key'}
                   </button>
+                  <p className="text-xs text-[#6b7280]">
+                    {quotaInfo?.hasApiKey ? '✅ 已配置API Key' : '未配置API Key，使用系统默认AI'}
+                  </p>
                 </div>
-                <Button onClick={handleSaveApiKey} disabled={saving || !apiKey}>
-                  {saving ? '保存中...' : '保存API Key'}
-                </Button>
               </div>
-            )}
 
-            <div className="text-sm text-gray-500">
-              <p>• API Key将加密存储，仅用于AI调用</p>
-              <p>• 您可以在 <a href="https://platform.deepseek.com" target="_blank" className="text-blue-500">DeepSeek平台</a> 获取API Key</p>
+              {/* Payment History */}
+              <div className="glass-card p-6 md:col-span-2">
+                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#f97316]" />
+                  支付记录
+                </h3>
+                <div className="text-center py-8">
+                  <p className="text-[#6b7280] text-sm">暂无支付记录</p>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* 升级提示 */}
-        {quotaInfo?.user.plan === 'free' && (
-          <Card className="border-2 border-blue-500">
-            <CardContent className="p-6">
-              <div className="text-center">
-                <h3 className="text-xl font-bold mb-2">升级专业版，解锁全部功能</h3>
-                <p className="text-gray-600 mb-4">
-                  无限AI调用 + 完整标书生成 + 企业知识库 + 优先客服
-                </p>
-                <div className="flex items-center justify-center space-x-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">¥99</div>
-                    <div className="text-sm text-gray-500">月付</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">¥799</div>
-                    <div className="text-sm text-gray-500">年付 <span className="text-red-500">省¥389</span></div>
-                  </div>
-                </div>
-                <Button className="mt-4" onClick={() => router.push('/pricing')}>
-                  查看套餐详情
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          )}
+        </div>
       </main>
     </div>
   );

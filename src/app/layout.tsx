@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -82,12 +77,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://bidding-decision-system.vercel.app",
   },
-  verification: {
-    //google: "your-google-verification-code", // TODO: 添加Google Search Console验证
-  },
+  verification: {},
 };
 
-// 结构化数据 (JSON-LD)
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -102,7 +94,7 @@ const jsonLd = {
     lowPrice: "0",
     highPrice: "299",
     priceCurrency: "CNY",
-    offerCount: 4,
+    offerCount: 3,
   },
   featureList: [
     "AI招标文件分析",
@@ -115,7 +107,7 @@ const jsonLd = {
   screenshot: "https://bidding-decision-system.vercel.app/screenshot.png",
   softwareVersion: "1.0",
   datePublished: "2026-06-20",
-  dateModified: "2026-06-21",
+  dateModified: "2026-06-25",
 };
 
 export default function RootLayout({
@@ -126,7 +118,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} h-full antialiased`}
     >
       <head>
         <script

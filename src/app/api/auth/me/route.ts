@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
+import prisma from '@/lib/db';
+import { maskApiKey } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,12 +17,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
+    // 获取完整的用户信息（包括API Key状态）
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        plan: true,
+        planExpiresAt: true,
+        tempExpiresAt: true,
+        aiQuotaUsed: true,
+        aiQuotaResetAt: true,
+        userApiKey: true,
+        apiKeyVerified: true,
+        totalAiCalls: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ user: null }, { status: 401 });
+    }
+
     return NextResponse.json({
       user: {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name,
-        phone: session.user.phone,
+        ...user,
+        // API Key脱敏显示，不返回完整Key
+        userApiKey: maskApiKey(user.userApiKey),
+        hasApiKey: !!user.userApiKey,
       },
     });
   } catch (error) {

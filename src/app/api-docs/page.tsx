@@ -1,12 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Copy, Eye, EyeOff, Key, Book, BarChart3, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Sidebar } from '@/components/sidebar';
+import { Copy, Eye, EyeOff, Key, Book, BarChart3, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
 
 interface ApiKey {
   id: string;
@@ -112,20 +108,19 @@ const endpoints: Endpoint[] = [
 const getMethodColor = (method: string) => {
   switch (method) {
     case 'GET':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-green-500/20 text-green-400 border border-green-500/30';
     case 'POST':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
     case 'PUT':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
     case 'DELETE':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-red-500/20 text-red-400 border border-red-500/30';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
   }
 };
 
 export default function ApiDocsPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'docs' | 'keys' | 'stats'>('docs');
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([
     {
@@ -187,123 +182,111 @@ export default function ApiDocsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">API 开放平台</h1>
-              <p className="text-sm text-gray-500">投标决策系统 API 文档与管理</p>
-            </div>
+    <div className="flex h-screen bg-[#0A0A12] overflow-hidden">
+      <Sidebar />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white">API 开放平台</h1>
+            <p className="text-[#6b7280] mt-1">投标决策系统 API 文档与管理</p>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
-              activeTab === 'docs'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Book className="h-4 w-4" />
-            API文档
-          </button>
-          <button
-            onClick={() => setActiveTab('keys')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
-              activeTab === 'keys'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Key className="h-4 w-4" />
-            API密钥
-          </button>
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
-              activeTab === 'stats'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4" />
-            使用统计
-          </button>
-        </div>
+          <div className="flex gap-2 mb-6 border-b border-[#2e2e42]">
+            <button
+              onClick={() => setActiveTab('docs')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                activeTab === 'docs'
+                  ? 'border-[#7c3aed] text-[#a78bfa]'
+                  : 'border-transparent text-[#6b7280] hover:text-[#e2e8f0]'
+              }`}
+            >
+              <Book className="h-4 w-4" />
+              API文档
+            </button>
+            <button
+              onClick={() => setActiveTab('keys')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                activeTab === 'keys'
+                  ? 'border-[#7c3aed] text-[#a78bfa]'
+                  : 'border-transparent text-[#6b7280] hover:text-[#e2e8f0]'
+              }`}
+            >
+              <Key className="h-4 w-4" />
+              API密钥
+            </button>
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                activeTab === 'stats'
+                  ? 'border-[#7c3aed] text-[#a78bfa]'
+                  : 'border-transparent text-[#6b7280] hover:text-[#e2e8f0]'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              使用统计
+            </button>
+          </div>
 
-        {activeTab === 'docs' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                  认证说明
-                </CardTitle>
-                <CardDescription>
-                  所有API请求需要在请求头中携带API密钥进行认证
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm">
-                  <span className="text-gray-400">// 请求头格式</span>
+          {activeTab === 'docs' && (
+            <div className="space-y-6">
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                  <h3 className="text-lg font-semibold text-white">认证说明</h3>
+                </div>
+                <p className="text-[#6b7280] text-sm mb-4">所有API请求需要在请求头中携带API密钥进行认证</p>
+                <div className="bg-[#0f0f1a] rounded-lg p-4 font-mono text-sm border border-[#2e2e42]">
+                  <span className="text-[#6b7280]">{`// 请求头格式`}</span>
                   <br />
                   <span className="text-green-400">Authorization</span>
-                  <span className="text-gray-300">: </span>
+                  <span className="text-[#e2e8f0]">: </span>
                   <span className="text-yellow-300">Bearer YOUR_API_KEY</span>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {endpoints.map((endpoint, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <Badge className={`${getMethodColor(endpoint.method)} font-mono`}>
+              {endpoints.map((endpoint, index) => (
+                <div key={index} className="glass-card p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className={`${getMethodColor(endpoint.method)} px-2 py-1 rounded text-xs font-mono font-bold`}>
                       {endpoint.method}
-                    </Badge>
-                    <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+                    </span>
+                    <code className="text-sm font-mono text-[#a78bfa] bg-[#1e1e2e] px-2 py-1 rounded border border-[#2e2e42]">
                       {endpoint.path}
                     </code>
                   </div>
-                  <CardTitle className="mt-2">{endpoint.title}</CardTitle>
-                  <CardDescription>{endpoint.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="font-medium mb-2">参数说明</h4>
-                    <div className="border rounded-lg overflow-hidden">
+                  <h3 className="text-lg font-semibold text-white mb-1">{endpoint.title}</h3>
+                  <p className="text-[#6b7280] text-sm mb-4">{endpoint.description}</p>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-[#e2e8f0] mb-2">参数说明</h4>
+                    <div className="border border-[#2e2e42] rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-[#1e1e2e]">
                           <tr>
-                            <th className="text-left px-4 py-2 font-medium">参数名</th>
-                            <th className="text-left px-4 py-2 font-medium">类型</th>
-                            <th className="text-left px-4 py-2 font-medium">必填</th>
-                            <th className="text-left px-4 py-2 font-medium">描述</th>
+                            <th className="text-left px-4 py-2 font-medium text-[#6b7280]">参数名</th>
+                            <th className="text-left px-4 py-2 font-medium text-[#6b7280]">类型</th>
+                            <th className="text-left px-4 py-2 font-medium text-[#6b7280]">必填</th>
+                            <th className="text-left px-4 py-2 font-medium text-[#6b7280]">描述</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-[#2e2e42]">
                           {endpoint.parameters.map((param, pIndex) => (
                             <tr key={pIndex}>
-                              <td className="px-4 py-2 font-mono text-sm">{param.name}</td>
-                              <td className="px-4 py-2 text-gray-600">{param.type}</td>
+                              <td className="px-4 py-2 font-mono text-sm text-[#e2e8f0]">{param.name}</td>
+                              <td className="px-4 py-2 text-[#6b7280]">{param.type}</td>
                               <td className="px-4 py-2">
                                 {param.required ? (
-                                  <Badge variant="destructive" className="text-xs">必填</Badge>
+                                  <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30">
+                                    必填
+                                  </span>
                                 ) : (
-                                  <Badge variant="secondary" className="text-xs">可选</Badge>
+                                  <span className="bg-gray-500/20 text-gray-400 text-xs px-2 py-0.5 rounded border border-gray-500/30">
+                                    可选
+                                  </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2 text-gray-600">{param.description}</td>
+                              <td className="px-4 py-2 text-[#6b7280]">{param.description}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -313,73 +296,68 @@ export default function ApiDocsPage() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">cURL 示例</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <h4 className="text-sm font-medium text-[#e2e8f0]">cURL 示例</h4>
+                      <button
+                        className="btn-ghost text-xs"
                         onClick={() => copyToClipboard(endpoint.curlExample)}
                       >
                         <Copy className="h-4 w-4 mr-1" />
                         复制
-                      </Button>
+                      </button>
                     </div>
-                    <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
+                    <pre className="bg-[#0f0f1a] text-[#e2e8f0] rounded-lg p-4 overflow-x-auto text-sm font-mono border border-[#2e2e42]">
                       {endpoint.curlExample}
                     </pre>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
 
-        {activeTab === 'keys' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>API 密钥管理</CardTitle>
-                <CardDescription>创建和管理您的API访问密钥</CardDescription>
-              </CardHeader>
-              <CardContent>
+          {activeTab === 'keys' && (
+            <div className="space-y-6">
+              <div className="glass-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-1">API 密钥管理</h3>
+                <p className="text-[#6b7280] text-sm mb-6">创建和管理您的API访问密钥</p>
+
                 <div className="flex items-center gap-4 mb-6">
-                  <Button onClick={() => setShowNewKeyForm(true)}>
+                  <button onClick={() => setShowNewKeyForm(true)} className="btn-primary">
                     <Key className="h-4 w-4 mr-2" />
                     创建新密钥
-                  </Button>
+                  </button>
                 </div>
 
                 {showNewKeyForm && (
-                  <Card className="mb-6 border-blue-200 bg-blue-50">
-                    <CardContent className="pt-6">
-                      <div className="flex gap-4">
-                        <input
-                          type="text"
-                          value={newKeyName}
-                          onChange={(e) => setNewKeyName(e.target.value)}
-                          placeholder="输入密钥名称..."
-                          className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <Button onClick={handleCreateKey}>创建</Button>
-                        <Button variant="outline" onClick={() => setShowNewKeyForm(false)}>
-                          取消
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="glass-card p-4 mb-6 border border-[#7c3aed]/30 bg-[#7c3aed]/5">
+                    <div className="flex gap-4">
+                      <input
+                        type="text"
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        placeholder="输入密钥名称..."
+                        className="input-field flex-1"
+                      />
+                      <button onClick={handleCreateKey} className="btn-primary">
+                        创建
+                      </button>
+                      <button className="btn-ghost" onClick={() => setShowNewKeyForm(false)}>
+                        取消
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 <div className="space-y-4">
                   {apiKeys.map((apiKey) => (
-                    <div key={apiKey.id} className="border rounded-lg p-4">
+                    <div key={apiKey.id} className="border border-[#2e2e42] rounded-lg p-4 bg-[#0f0f1a]/50">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                          <Key className="h-5 w-5 text-gray-400" />
-                          <span className="font-medium">{apiKey.name}</span>
+                          <Key className="h-5 w-5 text-[#6b7280]" />
+                          <span className="font-medium text-[#e2e8f0]">{apiKey.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                          <button
+                            className="btn-ghost p-2"
                             onClick={() => toggleKeyVisibility(apiKey.id)}
                           >
                             {showKeys[apiKey.id] ? (
@@ -387,83 +365,68 @@ export default function ApiDocsPage() {
                             ) : (
                               <Eye className="h-4 w-4" />
                             )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                          </button>
+                          <button
+                            className="btn-ghost p-2"
                             onClick={() => copyToClipboard(apiKey.key)}
                           >
                             <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                          </button>
+                          <button
+                            className="btn-ghost p-2 text-red-400 hover:text-red-300"
                             onClick={() => handleDeleteKey(apiKey.id)}
-                            className="text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </button>
                         </div>
                       </div>
-                      <div className="bg-gray-100 rounded p-3 font-mono text-sm">
+                      <div className="bg-[#1e1e2e] rounded p-3 font-mono text-sm text-[#e2e8f0] border border-[#2e2e42]">
                         {showKeys[apiKey.id]
                           ? apiKey.key
                           : apiKey.key.replace(/./g, '*').slice(0, 20) + '...'}
                       </div>
-                      <div className="flex gap-4 mt-2 text-sm text-gray-500">
+                      <div className="flex gap-4 mt-2 text-sm text-[#6b7280]">
                         <span>创建时间: {apiKey.createdAt}</span>
                         <span>最后使用: {apiKey.lastUsed}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'stats' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-sm text-gray-500">总请求数</div>
-                  <div className="text-3xl font-bold">{stats.totalRequests.toLocaleString()}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-sm text-gray-500">今日请求</div>
-                  <div className="text-3xl font-bold">{stats.todayRequests}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-sm text-gray-500">平均响应时间</div>
-                  <div className="text-3xl font-bold">{stats.avgResponseTime}ms</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-sm text-gray-500">成功率</div>
-                  <div className="text-3xl font-bold text-green-600">{stats.successRate}%</div>
-                </CardContent>
-              </Card>
+              </div>
             </div>
+          )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>月度使用趋势</CardTitle>
-                <CardDescription>最近三个月的API调用统计</CardDescription>
-              </CardHeader>
-              <CardContent>
+          {activeTab === 'stats' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="glass-card p-6">
+                  <div className="text-sm text-[#6b7280]">总请求数</div>
+                  <div className="text-3xl font-bold text-white">{stats.totalRequests.toLocaleString()}</div>
+                </div>
+                <div className="glass-card p-6">
+                  <div className="text-sm text-[#6b7280]">今日请求</div>
+                  <div className="text-3xl font-bold text-white">{stats.todayRequests}</div>
+                </div>
+                <div className="glass-card p-6">
+                  <div className="text-sm text-[#6b7280]">平均响应时间</div>
+                  <div className="text-3xl font-bold text-white">{stats.avgResponseTime}ms</div>
+                </div>
+                <div className="glass-card p-6">
+                  <div className="text-sm text-[#6b7280]">成功率</div>
+                  <div className="text-3xl font-bold text-green-400">{stats.successRate}%</div>
+                </div>
+              </div>
+
+              <div className="glass-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-1">月度使用趋势</h3>
+                <p className="text-[#6b7280] text-sm mb-4">最近三个月的API调用统计</p>
                 <div className="space-y-4">
                   {stats.monthlyUsage.map((month, index) => (
                     <div key={index} className="flex items-center gap-4">
-                      <span className="w-12 text-sm text-gray-500">{month.month}</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+                      <span className="w-12 text-sm text-[#6b7280]">{month.month}</span>
+                      <div className="flex-1 bg-[#1e1e2e] rounded-full h-6 overflow-hidden border border-[#2e2e42]">
                         <div
-                          className="bg-blue-500 h-full rounded-full flex items-center justify-end pr-2"
+                          className="bg-gradient-to-r from-[#7c3aed] to-[#06b6d4] h-full rounded-full flex items-center justify-end pr-2"
                           style={{ width: `${(month.requests / 3000) * 100}%` }}
                         >
                           <span className="text-xs text-white font-medium">
@@ -474,26 +437,22 @@ export default function ApiDocsPage() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  API 状态
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                  <h3 className="text-lg font-semibold text-white">API 状态</h3>
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-green-600 font-medium">所有服务运行正常</span>
+                  <span className="text-green-400 font-medium">所有服务运行正常</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

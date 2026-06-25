@@ -1,196 +1,145 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Navigation } from '@/components/navigation';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, CreditCard, Zap, Building, Star } from 'lucide-react';
+import { CheckCircle, Crown } from 'lucide-react';
 
-interface PricingPlan {
-  id: string;
-  name: string;
-  displayName: string;
-  price: number;
-  period: string;
-  description: string;
-  features: string[];
-  highlight: boolean;
-}
-
-const PLAN_ICONS: Record<string, React.ReactNode> = {
-  free: <Star className="h-6 w-6" />,
-  single: <CreditCard className="h-6 w-6" />,
-  pro: <Zap className="h-6 w-6" />,
-  'pro-year': <Zap className="h-6 w-6" />,
-  enterprise: <Building className="h-6 w-6" />,
-};
-
-const PLAN_PERIOD_LABELS: Record<string, string> = {
-  month: '月',
-  year: '年',
-  single: '/单次',
-};
+const plans = [
+  {
+    name: 'free',
+    displayName: '免费版',
+    price: 0,
+    period: '20次/月',
+    description: '体验AI分析能力',
+    highlight: false,
+    features: [
+      'AI分析招标文件',
+      '6项信息提取（含来源页码）',
+      '基本信息/财务信息/评分规则',
+      '项目需求/时间要求/资质要求',
+      '老板总结',
+      '每月20次免费额度',
+    ],
+    buttonText: '开始使用',
+    buttonStyle: 'btn-success',
+  },
+  {
+    name: 'single',
+    displayName: '单次基础版',
+    price: 19,
+    period: '/项目',
+    description: '解锁单项目完整分析',
+    highlight: false,
+    features: [
+      '解锁潜在废标风险',
+      '解锁评分关键项',
+      '解锁电话咨询问题',
+      '解锁准备分工项目包',
+      '解锁投标策略建议',
+      '解锁容易失分项',
+    ],
+    buttonText: '立即去上传标书',
+    buttonStyle: 'btn-primary',
+  },
+  {
+    name: 'pro',
+    displayName: '专业会员版',
+    price: 99,
+    period: '/月',
+    description: '不限项目深度分析',
+    highlight: true,
+    features: [
+      '不限项目深度分析',
+      '不限标书生成',
+      '不限评分拆解',
+      'API接口',
+      '优先客服',
+      '企业知识库',
+    ],
+    buttonText: '🚀 立即开通专业版',
+    buttonStyle: 'btn-accent',
+  },
+];
 
 export default function PricingPage() {
   const router = useRouter();
-  const [plans, setPlans] = useState<PricingPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [subscribing, setSubscribing] = useState(false);
 
-  useEffect(() => {
-    loadPlans();
-  }, []);
-
-  const loadPlans = async () => {
-    try {
-      const response = await fetch('/api/pricing');
-      const data = await response.json();
-      if (response.ok) {
-        setPlans(data.plans || []);
-      }
-    } catch (error) {
-      console.error('Failed to load pricing plans:', error);
-    } finally {
-      setLoading(false);
+  const handleSubscribe = (planName: string) => {
+    if (planName === 'free') {
+      router.push('/register');
+    } else {
+      router.push(`/payment?plan=${planName}`);
     }
   };
 
-  const handleSubscribe = async (planId: string) => {
-    // 跳转到支付页面
-    router.push(`/payment?plan=${planId}`);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Navigation />
+    <div className="min-h-screen bg-[#0A0A12] flex flex-col items-center justify-center p-8">
+      {/* Header */}
+      <div className="text-center mb-12">
+        <h1 className="text-3xl font-bold text-white mb-3">选择合适您的方案</h1>
+        <p className="text-[#9ca3af]">从单次分析到专业版，灵活满足不同规模的投标需求</p>
+      </div>
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        {/* 标题 */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900">选择适合您的方案</h2>
-          <p className="mt-4 text-lg text-gray-600">
-            灵活的定价方案，满足不同规模团队的需求
-          </p>
-        </div>
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-[900px] w-full">
+        {plans.map((plan) => (
+          <div
+            key={plan.name}
+            className={plan.highlight ? 'gradient-border p-[1px] rounded-2xl' : 'glass-card p-[1px] rounded-2xl'}
+            style={plan.highlight ? {
+              background: 'linear-gradient(#1e1e2e,#1e1e2e) padding-box, linear-gradient(135deg,#7c3aed,#06b6d4) border-box',
+            } : undefined}
+          >
+            <div className={`rounded-2xl p-8 flex flex-col h-full ${plan.highlight ? 'bg-[#0f0f1a]' : 'bg-transparent'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-xl font-bold text-white">{plan.displayName}</h3>
+                {plan.highlight && <Crown className="w-5 h-5 text-[#f59e0b]" />}
+              </div>
+              <p className="text-sm text-[#6b7280] mb-4">{plan.description}</p>
 
-        {/* 加载状态 */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-500">加载中...</p>
-          </div>
-        ) : (
-          /* 定价卡片 */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {plans.map((plan) => (
-              <Card
-                key={plan.id}
-                className={`relative ${
-                  plan.highlight
-                    ? 'border-2 border-blue-500 shadow-lg'
-                    : 'border border-gray-200'
-                }`}
+              <div className="mb-5">
+                <span className="text-4xl font-extrabold gradient-text">
+                  {plan.price === 0 ? '¥0' : `¥${plan.price}`}
+                </span>
+                <span className="text-[#6b7280] ml-1">/ {plan.period}</span>
+              </div>
+
+              <ul className="space-y-3 flex-1 text-sm text-[#9ca3af] mb-6">
+                {plan.features.map((feature, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handleSubscribe(plan.name)}
+                className={`${plan.buttonStyle} w-full justify-center py-3 text-base`}
               >
-                {plan.highlight && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-blue-500 text-white px-4 py-1">最受欢迎</Badge>
-                  </div>
-                )}
-                <CardContent className="p-8">
-                  <div className="text-center mb-6">
-                    <div
-                      className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 ${
-                        plan.highlight ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {PLAN_ICONS[plan.name] || <Star className="h-6 w-6" />}
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900">{plan.displayName}</h3>
-                    <p className="text-gray-500 mt-1">{plan.description}</p>
-                  </div>
-
-                  <div className="text-center mb-6">
-                    <span className="text-4xl font-bold text-gray-900">
-                      {plan.price === 0 ? '免费' : `¥${plan.price}`}
-                    </span>
-                    {plan.price > 0 && (
-                      <span className="text-gray-500">/{PLAN_PERIOD_LABELS[plan.period] || plan.period}</span>
-                    )}
-                    {plan.name === 'pro-year' && (
-                      <div className="text-sm text-red-500 mt-1">
-                        <span className="line-through text-gray-400">¥1188</span> 省¥389
-                      </div>
-                    )}
-                  </div>
-
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-600">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button
-                    onClick={() => handleSubscribe(plan.name)}
-                    disabled={subscribing && selectedPlan === plan.name}
-                    className={`w-full ${
-                      plan.highlight ? 'bg-blue-600 hover:bg-blue-700' : ''
-                    }`}
-                    variant={plan.highlight ? 'default' : 'outline'}
-                  >
-                    {subscribing && selectedPlan === plan.name ? (
-                      '处理中...'
-                    ) : plan.price === 0 ? (
-                      '开始使用'
-                    ) : (
-                      <>
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        立即订阅
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                {plan.buttonText}
+              </button>
+            </div>
           </div>
-        )}
+        ))}
+      </div>
 
-        {/* FAQ */}
-        <div className="mt-16 max-w-3xl mx-auto">
-          <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">常见问题</h3>
-          <div className="space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <h4 className="font-semibold text-gray-900 mb-2">可以随时升级或降级吗？</h4>
-                <p className="text-gray-600">
-                  是的，您可以随时在账户设置中升级或降级您的订阅方案。升级立即生效，降级在当前周期结束后生效。
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <h4 className="font-semibold text-gray-900 mb-2">支持哪些支付方式？</h4>
-                <p className="text-gray-600">
-                  我们支持支付宝、微信支付、银行卡等多种支付方式。企业版还支持对公转账。
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <h4 className="font-semibold text-gray-900 mb-2">有退款政策吗？</h4>
-                <p className="text-gray-600">
-                  如果您在订阅后7天内不满意，可以申请全额退款。超过7天后，我们将按剩余天数比例退款。
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+      {/* FAQ */}
+      <div className="mt-16 max-w-3xl w-full">
+        <h3 className="text-2xl font-bold text-white text-center mb-8">常见问题</h3>
+        <div className="space-y-4">
+          {[
+            { q: '可以随时升级或降级吗？', a: '是的，您可以随时在账户设置中升级或降级您的订阅方案。升级立即生效，降级在当前周期结束后生效。' },
+            { q: '支持哪些支付方式？', a: '我们支持支付宝、微信支付、银行卡等多种支付方式。企业版还支持对公转账。' },
+            { q: '免费版和付费版有什么区别？', a: '免费版每月提供20次AI分析额度，可查看基础评估结果。付费版可解锁完整风险分析、评分关键项、准备分工项目包等深度内容。' },
+          ].map((faq, idx) => (
+            <div key={idx} className="glass-card p-6">
+              <h4 className="font-semibold text-white mb-2">{faq.q}</h4>
+              <p className="text-[#9ca3af] text-sm">{faq.a}</p>
+            </div>
+          ))}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -6,16 +6,21 @@ export const dynamic = 'force-dynamic';
 // POST: 支付宝/微信支付回调通知
 export async function POST(request: NextRequest) {
   try {
+    // 验证来源IP（支付平台回调IP白名单）
+    const allowedIPs = (process.env.PAYMENT_CALLBACK_IPS || '').split(',').filter(Boolean);
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
+      || request.headers.get('x-real-ip') 
+      || '';
+    
+    if (allowedIPs.length > 0 && !allowedIPs.includes(clientIP)) {
+      console.error('[Payment Callback] 非法来源IP:', clientIP);
+      return NextResponse.json({ error: '非法来源' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { orderNo, status, transactionId, paymentMethod } = body;
 
     console.log('[Payment Callback] 收到支付回调:', { orderNo, status, transactionId });
-
-    // 验证签名（实际接入时需要验证）
-    // const isValid = verifySignature(body);
-    // if (!isValid) {
-    //   return NextResponse.json({ error: '签名验证失败' }, { status: 400 });
-    // }
 
     // 查询订单
     const order = await prisma.order.findFirst({

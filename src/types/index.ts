@@ -62,16 +62,16 @@ export interface BasicInfo {
 
 export interface FinancialInfo {
   fundingSource: string;
-  budget: number;
-  maxPrice: number;
-  preInvestment: number;
+  budget: number | string;
+  maxPrice: number | string;
+  preInvestment: number | string;
   paymentMethod: string;
-  bidDocumentFee: number;
-  bidBond: number;
-  performanceBond: number;
-  qualityBond: number;
-  confidentialityBond: number;
-  agencyFee: number;
+  bidDocumentFee: number | string;
+  bidBond: number | string;
+  performanceBond: number | string;
+  qualityBond: number | string;
+  confidentialityBond: number | string;
+  agencyFee: number | string;
   _source: Record<string, SourceLocation>;
 }
 
@@ -97,9 +97,11 @@ export interface QualificationRequirement {
 
 export interface ScoringRules {
   totalScore: number;
+  objectiveScore: number;
+  subjectiveScore: number;
+  priceScore: number;
   commercialScore: number;
   technicalScore: number;
-  priceScore: number;
   winningMethod: string;
   evaluationMethod: string;
   objectiveSubjectiveRatio: string;
@@ -157,6 +159,9 @@ export interface PhoneQuestion {
   id: string;
   question: string;
   answer?: string;
+  reason?: string;
+  priority?: 'low' | 'medium' | 'high';
+  category?: '技术' | '商务' | '流程' | '资质' | '其他';
   _source?: SourceLocation;
 }
 

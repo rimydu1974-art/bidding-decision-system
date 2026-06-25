@@ -3,9 +3,21 @@ import prisma from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 import { verifyPassword, createSession } from '@/lib/auth';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // 速率限制
+    const ip = getClientIP(request);
+    const rateLimit = checkRateLimit(`login:${ip}`, RATE_LIMITS.login);
+    
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: '登录尝试过于频繁，请稍后再试' },
+        { status: 429 }
+      );
+    }
+
     const { email, password } = await request.json();
 
     if (!email || !password) {

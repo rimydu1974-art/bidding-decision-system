@@ -4,8 +4,13 @@ import prisma from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// 管理员邮箱列表（请替换为你自己的邮箱）
-const ADMIN_EMAILS = ['admin@example.com', 'rimydu@163.com', '412721359@qq.com'];
+// 管理员邮箱列表（从环境变量读取，逗号分隔）
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'admin@example.com').split(',').map(e => e.trim());
+
+// 检查是否是管理员
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email);
+}
 
 // GET: 获取待审核订单列表
 export async function GET(request: NextRequest) {
@@ -23,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 检查是否是管理员
-    if (!ADMIN_EMAILS.includes(session.user.email)) {
+    if (!isAdmin(session.user.email)) {
       return NextResponse.json({ error: '无权限' }, { status: 403 });
     }
 
@@ -78,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查是否是管理员
-    if (!ADMIN_EMAILS.includes(session.user.email)) {
+    if (!isAdmin(session.user.email)) {
       return NextResponse.json({ error: '无权限' }, { status: 403 });
     }
 

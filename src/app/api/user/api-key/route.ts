@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证API Key有效性
+    let isVerified = false;
     try {
       const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
@@ -44,20 +45,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'API Key无效或无权限' }, { status: 400 });
       }
 
-      if (response.status === 429) {
-        // 429表示密钥有效但额度不足，仍然保存
-        console.log('API Key valid but quota exceeded');
+      // 200 或 429 都表示Key有效（429表示额度不足但Key本身有效）
+      if (response.status === 200 || response.status === 429) {
+        isVerified = true;
       }
     } catch (error) {
-      console.log('API validation error, saving anyway:', error);
+      // 网络错误等，保存但不标记为已验证
+      console.log('API validation error, saving as unverified:', error);
     }
 
-    // 保存API Key
+    // 保存API Key，仅在验证通过时标记为已验证
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
         userApiKey: apiKey,
-        apiKeyVerified: true,
+        apiKeyVerified: isVerified,
       },
     });
 

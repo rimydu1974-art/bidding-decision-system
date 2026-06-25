@@ -32,7 +32,8 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   }).format(d);
 }
 
-export function formatCurrency(amount: number | null | undefined): string {
+export function formatCurrency(amount: number | string | null | undefined): string {
+  if (typeof amount === 'string') return amount;
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: 'CNY',
@@ -108,4 +109,11 @@ export function getRecommendationColor(recommendation: 'bid' | 'caution' | 'no-b
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// API Key 脱敏显示
+export function maskApiKey(apiKey: string | null | undefined): string | null {
+  if (!apiKey) return null;
+  if (apiKey.length <= 8) return '****';
+  return `${apiKey.substring(0, 4)}****${apiKey.substring(apiKey.length - 4)}`;
 }

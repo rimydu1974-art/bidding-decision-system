@@ -5,6 +5,20 @@ import { parseFile } from '@/lib/parsers';
 
 export const dynamic = 'force-dynamic';
 
+// 文件大小限制（10MB）
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// 允许的文件类型
+const ALLOWED_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/markdown',
+];
+
 // POST: 上传文件到知识库
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +38,22 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: '请选择文件' }, { status: 400 });
+    }
+
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `文件大小超过限制（最大 ${MAX_FILE_SIZE / 1024 / 1024}MB）` },
+        { status: 400 }
+      );
+    }
+
+    // 检查文件类型
+    if (ALLOWED_TYPES.length > 0 && !ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: '不支持的文件类型' },
+        { status: 400 }
+      );
     }
 
     // 解析文件

@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import crypto from 'crypto';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // 速率限制
+    const ip = getClientIP(request);
+    const rateLimit = checkRateLimit(`passwordReset:${ip}`, RATE_LIMITS.passwordReset);
+    
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: '请求过于频繁，请稍后再试' },
+        { status: 429 }
+      );
+    }
+
     const { email } = await request.json();
 
     if (!email) {
@@ -16,6 +28,17 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ message: '如果该邮箱已注册，重置链接已发送' });
     }
+
+    // 清理该邮箱的过期Token
+    await prisma.passwordReset.deleteMany({
+      where: {
+        email,
+        OR: [
+          { expiresAt: { lt: new Date() } },
+          { used: true },
+        ],
+      },
+    });
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1小时

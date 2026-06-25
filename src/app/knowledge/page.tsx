@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Sidebar } from '@/components/sidebar';
 import {
   FileText,
   Search,
@@ -18,6 +15,7 @@ import {
   Cloud,
   HardDrive,
   Upload,
+  X,
 } from 'lucide-react';
 
 interface KnowledgeItem {
@@ -67,13 +65,12 @@ const SOURCES = [
 ];
 
 const SOURCE_LABELS: Record<string, { text: string; color: string }> = {
-  manual: { text: '手动创建', color: 'bg-blue-100 text-blue-800' },
-  feishu: { text: '飞书同步', color: 'bg-purple-100 text-purple-800' },
-  upload: { text: '文件上传', color: 'bg-green-100 text-green-800' },
+  manual: { text: '手动创建', color: 'bg-blue-500/20 text-blue-400' },
+  feishu: { text: '飞书同步', color: 'bg-purple-500/20 text-purple-400' },
+  upload: { text: '文件上传', color: 'bg-emerald-500/20 text-emerald-400' },
 };
 
 export default function KnowledgePage() {
-  const router = useRouter();
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -91,8 +88,8 @@ export default function KnowledgePage() {
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState('其他');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // 表单状态
   const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState('其他');
   const [formContent, setFormContent] = useState('');
@@ -106,10 +103,8 @@ export default function KnowledgePage() {
         source: selectedSource,
         search: searchQuery,
       });
-
       const response = await fetch(`/api/knowledge?${params}`);
       const data = await response.json();
-
       if (response.ok) {
         setItems(data.items || []);
         setCategories(data.categories || []);
@@ -143,27 +138,19 @@ export default function KnowledgePage() {
       alert('请选择飞书知识库');
       return;
     }
-
     setSyncingFeishu(true);
     try {
-      // 获取飞书知识库节点
       const nodesResponse = await fetch(`/api/feishu/knowledge?action=nodes&spaceId=${selectedSpace}`);
       const nodesData = await nodesResponse.json();
-
       if (!nodesResponse.ok || !nodesData.nodes) {
         throw new Error('获取飞书文档失败');
       }
-
-      // 同步每个文档到本地
       let syncCount = 0;
       for (const node of nodesData.nodes) {
         if (node.obj_type === 'doc' || node.obj_type === 'sheet') {
-          // 获取文档内容
           const contentResponse = await fetch(`/api/feishu/knowledge?action=content&documentId=${node.obj_token}`);
           const contentData = await contentResponse.json();
-
           if (contentResponse.ok && contentData.content) {
-            // 同步到本地
             await fetch('/api/feishu/knowledge', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -178,7 +165,6 @@ export default function KnowledgePage() {
           }
         }
       }
-
       alert(`成功同步 ${syncCount} 个文档`);
       setShowFeishuSync(false);
       loadKnowledge();
@@ -203,12 +189,10 @@ export default function KnowledgePage() {
       const formData = new FormData();
       formData.append('file', uploadFile);
       formData.append('category', uploadCategory);
-
       const response = await fetch('/api/knowledge/upload', {
         method: 'POST',
         body: formData,
       });
-
       const data = await response.json();
       if (response.ok) {
         setShowUploadModal(false);
@@ -239,7 +223,6 @@ export default function KnowledgePage() {
           tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
         }),
       });
-
       if (response.ok) {
         setShowAddModal(false);
         resetForm();
@@ -252,7 +235,6 @@ export default function KnowledgePage() {
 
   const handleEdit = async () => {
     if (!editingItem) return;
-
     try {
       const response = await fetch('/api/knowledge', {
         method: 'PUT',
@@ -265,7 +247,6 @@ export default function KnowledgePage() {
           tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
         }),
       });
-
       if (response.ok) {
         setEditingItem(null);
         resetForm();
@@ -277,14 +258,12 @@ export default function KnowledgePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这条知识吗？')) return;
-
     try {
       const response = await fetch(`/api/knowledge?id=${id}`, {
         method: 'DELETE',
       });
-
       if (response.ok) {
+        setDeleteConfirmId(null);
         loadKnowledge();
       }
     } catch (error) {
@@ -320,47 +299,41 @@ export default function KnowledgePage() {
     return sources.find((s) => s.name === sourceId)?.count || 0;
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 头部 */}
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button variant="ghost" onClick={() => router.push('/')}>
-                ← 返回
-              </Button>
-              <h1 className="text-xl font-bold text-gray-900">企业知识库</h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button variant="outline" onClick={() => setShowFeishuSync(true)}>
-                <Cloud className="h-4 w-4 mr-2" />
-                飞书同步
-              </Button>
-              <Button variant="outline" onClick={() => setShowUploadModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                上传文件
-              </Button>
-              <Button onClick={() => setShowAddModal(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                添加知识
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const closeAllModals = () => {
+    setShowAddModal(false);
+    setEditingItem(null);
+    resetForm();
+  };
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* 左侧筛选 */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* 来源筛选 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">数据来源</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+  return (
+    <div className="flex h-screen bg-[#0A0A12]">
+      <Sidebar />
+
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="flex items-center justify-between px-8 h-16 border-b border-[#2e2e42] flex-shrink-0">
+          <h1 className="text-xl font-bold text-white">知识库</h1>
+          <div className="flex items-center gap-3">
+            <button className="btn-ghost" onClick={() => setShowFeishuSync(true)}>
+              <Cloud className="h-4 w-4 mr-1" />
+              飞书同步
+            </button>
+            <button className="btn-ghost" onClick={() => setShowUploadModal(true)}>
+              <Upload className="h-4 w-4 mr-1" />
+              上传文件
+            </button>
+            <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              新增知识
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-8 scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-semibold text-[#e2e8f0] mb-3">数据来源</h3>
+                <div className="space-y-1">
                   {SOURCES.map((src) => {
                     const Icon = src.icon;
                     const count = getSourceCount(src.id);
@@ -368,31 +341,26 @@ export default function KnowledgePage() {
                       <button
                         key={src.id}
                         onClick={() => setSelectedSource(src.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left ${
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-all ${
                           selectedSource === src.id
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'hover:bg-gray-100'
+                            ? 'bg-[#7c3aed]/15 text-[#a78bfa]'
+                            : 'text-[#6b7280] hover:bg-[#1e1e2e] hover:text-[#e2e8f0]'
                         }`}
                       >
-                        <span className="flex items-center">
-                          <Icon className="h-4 w-4 mr-2" />
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
                           {src.name}
                         </span>
-                        <Badge variant="secondary">{count}</Badge>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#2a2a3c] text-[#6b7280]">{count}</span>
                       </button>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* 分类筛选 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">知识分类</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-semibold text-[#e2e8f0] mb-3">知识分类</h3>
+                <div className="space-y-1">
                   {CATEGORIES.map((cat) => {
                     const count = cat === '全部'
                       ? items.length
@@ -401,289 +369,284 @@ export default function KnowledgePage() {
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left ${
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-all ${
                           selectedCategory === cat
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'hover:bg-gray-100'
+                            ? 'bg-[#7c3aed]/15 text-[#a78bfa]'
+                            : 'text-[#6b7280] hover:bg-[#1e1e2e] hover:text-[#e2e8f0]'
                         }`}
                       >
-                        <span className="flex items-center">
-                          <Folder className="h-4 w-4 mr-2" />
+                        <span className="flex items-center gap-2">
+                          <Folder className="h-4 w-4" />
                           {cat}
                         </span>
-                        <Badge variant="secondary">{count}</Badge>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#2a2a3c] text-[#6b7280]">{count}</span>
                       </button>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
 
-          {/* 右侧内容 */}
-          <div className="lg:col-span-3">
-            {/* 搜索栏 */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <div className="lg:col-span-3">
+              <div className="mb-6 relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#6b7280]" />
                 <input
                   type="text"
                   placeholder="搜索知识库..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field pl-11"
                 />
               </div>
-            </div>
 
-            {/* 知识列表 */}
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-500">加载中...</p>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">暂无知识库内容</p>
-                <div className="mt-4 space-x-3">
-                  <Button onClick={() => setShowAddModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    添加知识
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowFeishuSync(true)}>
-                    <Cloud className="h-4 w-4 mr-2" />
-                    从飞书同步
-                  </Button>
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-8 h-8 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+                  <p className="mt-4 text-[#6b7280] text-sm">加载中...</p>
                 </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map((item) => (
-                  <Card key={item.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
+              ) : items.length === 0 ? (
+                <div className="glass-card flex flex-col items-center justify-center py-20">
+                  <FileText className="h-12 w-12 text-[#6b7280] mb-4" />
+                  <p className="text-[#6b7280]">暂无知识库内容</p>
+                  <div className="mt-4 flex gap-3">
+                    <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      添加知识
+                    </button>
+                    <button className="btn-ghost" onClick={() => setShowFeishuSync(true)}>
+                      <Cloud className="h-4 w-4 mr-1" />
+                      从飞书同步
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {items.map((item) => (
+                    <div key={item.id} className="glass-card p-5 group">
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900 line-clamp-1">
-                          {item.title}
-                        </h3>
-                        <div className="flex items-center space-x-1">
+                        <h3 className="font-semibold text-white line-clamp-1">{item.title}</h3>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => openEditModal(item)}
-                            className="p-1 hover:bg-gray-100 rounded"
+                            className="p-1.5 rounded-lg text-[#6b7280] hover:text-[#a78bfa] hover:bg-[#7c3aed]/10 transition-all"
                           >
-                            <Edit className="h-4 w-4 text-gray-500" />
+                            <Edit className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(item.id)}
-                            className="p-1 hover:bg-red-100 rounded"
+                            onClick={() => setDeleteConfirmId(item.id)}
+                            className="p-1.5 rounded-lg text-[#6b7280] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all"
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Badge className="bg-gray-100 text-gray-800">{item.category}</Badge>
-                        <Badge className={SOURCE_LABELS[item.source]?.color || 'bg-gray-100 text-gray-800'}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#2a2a3c] text-[#9ca3af]">{item.category}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${SOURCE_LABELS[item.source]?.color || 'bg-[#2a2a3c] text-[#6b7280]'}`}>
                           {SOURCE_LABELS[item.source]?.text || item.source}
-                        </Badge>
+                        </span>
                       </div>
 
-                      <p className="text-sm text-gray-500 line-clamp-3 mb-3">
-                        {item.content || '暂无内容'}
-                      </p>
+                      <p className="text-sm text-[#6b7280] line-clamp-3 mb-4">{item.content || '暂无内容'}</p>
 
-                      <div className="flex items-center justify-between text-xs text-gray-400">
-                        <div className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
+                      <div className="flex items-center justify-between text-xs text-[#4b5563]">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
                           {new Date(item.updatedAt).toLocaleDateString('zh-CN')}
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2">
                           {parseTags(item.tags).slice(0, 2).map((tag: string, i: number) => (
-                            <span key={i} className="flex items-center">
-                              <Tag className="h-3 w-3 mr-1" />
+                            <span key={i} className="flex items-center gap-1">
+                              <Tag className="h-3 w-3" />
                               {tag}
                             </span>
                           ))}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
 
-      {/* 添加/编辑模态框 */}
       {(showAddModal || editingItem) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-lg mx-4">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">
-                {editingItem ? '编辑知识' : '添加知识'}
-              </h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-in">
+          <div className="glass-card w-full max-w-lg mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-[#2e2e42]">
+              <h2 className="text-lg font-semibold text-white">{editingItem ? '编辑知识' : '新增知识'}</h2>
+              <button onClick={closeAllModals} className="text-[#6b7280] hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">标题</label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">标题</label>
                 <input
                   type="text"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                   placeholder="输入知识标题"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">分类</label>
                 <select
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                 >
                   {CATEGORIES.filter((c) => c !== '全部').map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat} className="bg-[#1e1e2e] text-[#e2e8f0]">{cat}</option>
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">内容</label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">内容</label>
                 <textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field resize-none"
                   placeholder="输入知识内容..."
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  标签（用逗号分隔）
-                </label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">标签（用逗号分隔）</label>
                 <input
                   type="text"
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                   placeholder="如：ISO9001, 高新技术, 资质证书"
                 />
               </div>
             </div>
-            <div className="p-4 border-t flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAddModal(false);
-                  setEditingItem(null);
-                  resetForm();
-                }}
-              >
-                取消
-              </Button>
-              <Button onClick={editingItem ? handleEdit : handleAdd}>
+            <div className="flex justify-end gap-3 p-5 border-t border-[#2e2e42]">
+              <button className="btn-ghost" onClick={closeAllModals}>取消</button>
+              <button className="btn-primary" onClick={editingItem ? handleEdit : handleAdd}>
                 {editingItem ? '保存' : '添加'}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 飞书同步模态框 */}
       {showFeishuSync && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md mx-4">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">从飞书同步</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-in">
+          <div className="glass-card w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-[#2e2e42]">
+              <h2 className="text-lg font-semibold text-white">从飞书同步</h2>
+              <button onClick={() => setShowFeishuSync(false)} className="text-[#6b7280] hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  选择飞书知识库
-                </label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">选择飞书知识库</label>
                 <select
                   value={selectedSpace}
                   onChange={(e) => setSelectedSpace(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                 >
-                  <option value="">请选择</option>
+                  <option value="" className="bg-[#1e1e2e] text-[#e2e8f0]">请选择</option>
                   {feishuSpaces.map((space) => (
-                    <option key={space.id} value={space.id}>{space.name}</option>
+                    <option key={space.id} value={space.id} className="bg-[#1e1e2e] text-[#e2e8f0]">{space.name}</option>
                   ))}
                 </select>
               </div>
-              <p className="text-sm text-gray-500">
-                将同步所选知识库中的所有文档到本地知识库
-              </p>
+              <p className="text-sm text-[#6b7280]">将同步所选知识库中的所有文档到本地知识库</p>
             </div>
-            <div className="p-4 border-t flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setShowFeishuSync(false)}>
-                取消
-              </Button>
-              <Button onClick={handleFeishuSync} disabled={syncingFeishu}>
+            <div className="flex justify-end gap-3 p-5 border-t border-[#2e2e42]">
+              <button className="btn-ghost" onClick={() => setShowFeishuSync(false)}>取消</button>
+              <button className="btn-primary" onClick={handleFeishuSync} disabled={syncingFeishu}>
                 {syncingFeishu ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                     同步中...
                   </>
                 ) : (
                   '开始同步'
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 文件上传模态框 */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md mx-4">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">上传文件到知识库</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-in">
+          <div className="glass-card w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-[#2e2e42]">
+              <h2 className="text-lg font-semibold text-white">上传文件到知识库</h2>
+              <button onClick={() => { setShowUploadModal(false); setUploadFile(null); }} className="text-[#6b7280] hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">选择文件</label>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
                   onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="input-field file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#7c3aed]/20 file:text-[#a78bfa] hover:file:bg-[#7c3aed]/30"
                 />
-                <p className="text-xs text-gray-500 mt-1">支持 PDF、Word、Excel、文本文件</p>
+                <p className="text-xs text-[#6b7280] mt-1.5">支持 PDF、Word、Excel、文本文件</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                <label className="block text-sm font-medium text-[#9ca3af] mb-1.5">分类</label>
                 <select
                   value={uploadCategory}
                   onChange={(e) => setUploadCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                 >
                   {CATEGORIES.filter((c) => c !== '全部').map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat} className="bg-[#1e1e2e] text-[#e2e8f0]">{cat}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="p-4 border-t flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => { setShowUploadModal(false); setUploadFile(null); }}>
-                取消
-              </Button>
-              <Button onClick={handleFileUpload} disabled={!uploadFile || uploading}>
+            <div className="flex justify-end gap-3 p-5 border-t border-[#2e2e42]">
+              <button className="btn-ghost" onClick={() => { setShowUploadModal(false); setUploadFile(null); }}>取消</button>
+              <button className="btn-primary" onClick={handleFileUpload} disabled={!uploadFile || uploading}>
                 {uploading ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                     上传中...
                   </>
                 ) : (
                   '上传'
                 )}
-              </Button>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-in">
+          <div className="glass-card w-full max-w-sm mx-4 overflow-hidden">
+            <div className="p-5 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#ef4444]/10 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="h-6 w-6 text-[#ef4444]" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">确认删除</h3>
+              <p className="text-sm text-[#6b7280]">确定要删除这条知识吗？此操作不可撤销。</p>
+            </div>
+            <div className="flex gap-3 p-5 border-t border-[#2e2e42]">
+              <button className="btn-ghost flex-1" onClick={() => setDeleteConfirmId(null)}>取消</button>
+              <button
+                className="flex-1 inline-flex items-center justify-center gap-1.5 font-semibold rounded-xl px-5 py-2.5 text-sm border border-[#ef4444]/30 text-[#ef4444] bg-[#ef4444]/10 hover:bg-[#ef4444]/20 transition-all cursor-pointer"
+                onClick={() => handleDelete(deleteConfirmId)}
+              >
+                <Trash2 className="h-4 w-4" />
+                删除
+              </button>
             </div>
           </div>
         </div>

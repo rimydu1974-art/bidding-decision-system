@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
         riskLevel: data.riskLevel || 'medium',
         recommendation: data.recommendation || 'caution',
         fileName: data.fileName || '',
-        aiResult: JSON.stringify(data.aiResult || {}),
+        // 保存完整的评估对象，用于历史记录恢复
+        aiResult: JSON.stringify(data.fullAssessment || data.aiResult || {}),
         basicInfo: JSON.stringify(data.basicInfo || {}),
         risks: JSON.stringify(data.risks || []),
         tasks: JSON.stringify(data.tasks || []),
