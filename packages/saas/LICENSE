@@ -1,0 +1,60 @@
+UNLICENSED - PROPRIETARY SOFTWARE
+
+Copyright (c) 2026 Bid AI. All rights reserved.
+
+This software (@bid-ai/saas) is proprietary and confidential.
+
+No part of this software may be reproduced, distributed, or transmitted
+in any form or by any means without the prior written permission of
+Bid AI.
+
+---
+
+## Restrictions
+
+- No copying or distribution
+- No reverse engineering
+- No modification or derivative works
+- No public performance or display
+
+## Licensed Components
+
+This package contains the following proprietary modules:
+
+### Authentication Module
+- User registration and login
+- JWT token management
+- Password hashing and verification
+- Session management
+
+### Payment Module
+- Payment processing
+- Order management
+- Refund handling
+- Payment verification
+
+### AI Business Logic
+- Tender analysis prompts
+- AI provider integration (DeepSeek, Tongyi, Zhipu, etc.)
+- Response parsing and validation
+- Model selection and fallback
+
+### Feishu Integration
+- Business workflow automation
+- Notification routing rules
+- Decision recommendation generation
+- Approval process integration
+
+### Quota Management
+- Usage tracking
+- Rate limiting
+- Plan enforcement
+- Billing integration
+
+## Commercial Use
+
+For commercial use, deployment, or distribution of this software,
+you must obtain a commercial license from Bid AI.
+
+Contact: [Your Contact Information]
+Website: [Your Website]

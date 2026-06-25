@@ -2,12 +2,19 @@
   "name": "bidding-decision-system",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "turbo:build": "turbo run build",
+    "turbo:lint": "turbo run lint",
+    "clean": "turbo run clean"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -38,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "turbo": "^2.3.0",
     "typescript": "^5"
   }
 }
