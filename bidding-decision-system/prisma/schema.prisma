@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  name            String?
+  password        String
+  phone           String?
+  wechatOpenId    String?        @unique
+  avatar          String?
+  // 角色与状态
+  role            String         @default("user") // user/admin
+  status          String         @default("active") // active/disabled
+  // 订阅相关
+  plan            String         @default("free") // free/single/pro/enterprise
+  planExpiresAt   DateTime?      // 订阅过期时间
+  tempExpiresAt   DateTime?      // 单次购买临时权限过期时间
+  // 额度相关
+  aiQuotaUsed     Int            @default(0)  // 本月已用AI次数
+  aiQuotaResetAt  DateTime       @default(now()) // 额度重置时间
+  // 用户自备API
+  userApiKey      String?        // 用户自己的DeepSeek API Key
+  apiKeyVerified  Boolean        @default(false) // API Key是否验证通过
+  // 统计
+  totalAiCalls    Int            @default(0)  // 总AI调用次数
+  totalOrders     Int            @default(0)  // 总订单数
+  totalSpent      Float          @default(0)  // 总消费金额
+  // 时间戳
+  lastLoginAt     DateTime?      // 最后登录时间
+  lastAiUsageAt   DateTime?      // 最后AI使用时间
+  lastPaymentAt   DateTime?      // 最后支付时间
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assessments     Assessment[]
+  sessions        Session[]
+  knowledgeItems  KnowledgeItem[]
+  projects        Project[]
+  orders          Order[]
+  projectUnlocks  ProjectUnlock[]
+  aiUsages        AIUsage[]
+  behaviors       UserBehavior[]
+  feedbacks       UserFeedback[]
+  materials       Material[]
+  caseSubmissions CaseSubmission[]
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  userId        String
+  token         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Assessment {
+  id                    String   @id @default(cuid())
+  userId                String
+  projectName           String
+  projectCode           String?
+  budget                Float    @default(0)
+  riskLevel             String   @default("medium")
+  recommendation        String   @default("caution")
+  fileName              String
+  fileContent           String?
+  aiResult              String   @default("{}")
+  basicInfo             String   @default("{}")
+  risks                 String   @default("[]")
+  tasks                 String   @default("[]")
+  scoringRules          String   @default("{}")
+  qualificationReqs     String   @default("[]")
+  technicalResponse     String   @default("[]")
+  riskAggregation       String   @default("{}")
+  bidDeadline           DateTime?
+  bidOpeningTime        DateTime?
+  queryDeadline         DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id])
+}
+
+model KnowledgeItem {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  category      String   @default("未分类")
+  subcategory   String?
+  content       String   @default("")
+  tags          String   @default("[]")
+  fileType      String   @default("text")
+  fileName      String?
+  fileUrl       String?
+  source        String   @default("manual")
+  sourceId      String?
+  metadata      String   @default("{}")
+  usageCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  industry      String?  // 行业分类
+  status        String   @default("active")
+  members       String   @default("[]")
+  tasks         String   @default("[]")
+  metadata      String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model PricingPlan {
+  id            String   @id @default(cuid())
+  name          String
+  displayName   String
+  price         Float
+  period        String   @default("month")
+  description   String?
+  features      String   @default("[]")
+  highlight     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  metadata      String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  orderNo         String   @unique
+  planName        String   // pro/enterprise/single
+  amount          Float
+  paymentMethod   String?  // alipay/wechat
+  paymentStatus   String   @default("pending") // pending/paid/refunded
+  paidAt          DateTime?
+  expiresAt       DateTime // 权限过期时间
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model ProjectUnlock {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  amount    Float    @default(19)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  @@unique([userId, projectId])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  @@index([email])
+  @@index([token])
+}
+
+// AI使用记录表（成本监控核心）
+model AIUsage {
+  id                String   @id @default(cuid())
+  userId            String
+  model             String   // deepseek/tongyi/zhipu
+  promptTokens      Int      @default(0)
+  completionTokens  Int      @default(0)
+  totalTokens       Int      @default(0)
+  cost              Float    @default(0) // 费用（元）
+  useUserApiKey     Boolean  @default(false) // 是否使用用户自有Key
+  fileHash          String?  // 关联文件Hash
+  projectId         String?  // 关联项目ID
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([model])
+  @@index([createdAt])
+}
+
+// 用户行为记录表（漏斗分析核心）
+model UserBehavior {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // register/login/upload/analyze/view_result/click_pay/pay_success
+  projectId String?  // 关联项目ID
+  metadata  String   @default("{}") // 扩展信息JSON
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// 文件Hash记录表（去重核心）
+model FileHash {
+  id        String   @id @default(cuid())
+  hash      String   @unique // 文件SHA256
+  fileName  String
+  fileSize  Int
+  projectId String?  // 关联项目ID
+  userId    String
+  createdAt DateTime @default(now())
+  @@index([hash])
+}
+
+// 用户反馈表（P1模块）
+model UserFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  reason    String   // 太贵/分析价值不够/先试试/已有工具/公司流程/其他
+  content   String?  // 详细说明
+  page      String   // 触发页面
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+}
+
+// 系统配置表
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String   @default("general") // general/ai/payment/sms
+  updatedAt DateTime @updatedAt
+}
+
+// 项目行业统计表（P1模块）
+model ProjectIndustry {
+  id        String   @id @default(cuid())
+  industry  String   @unique
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// 规则配置表（核心IP资产）
+model RuleConfig {
+  id        String   @id @default(cuid())
+  category  String   // void-bid/financial/timeline/qualification/document-req/scoring/symbol
+  name      String
+  keywords  String   @default("[]") // JSON: 关键词列表
+  patterns  String   @default("[]") // JSON: 正则模式列表
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([category])
+}
+
+// 规则提取日志表
+model ExtractionLog {
+  id              String   @id @default(cuid())
+  assessmentId    String
+  userId          String
+  ruleResult      String   @default("{}") // JSON: 规则提取结果摘要
+  aiResult        String   @default("{}") // JSON: AI提取结果摘要
+  discrepancies   String   @default("[]") // JSON: 不一致项（幻觉检测）
+  extractionTime  Int      @default(0) // 规则提取耗时(ms)
+  createdAt       DateTime @default(now())
+  @@index([assessmentId])
+  @@index([userId])
+}
+
+// 支付订单表
+model PaymentOrder {
+  id              String   @id @default(cuid())
+  orderNo         String   @unique
+  userEmail       String
+  planName        String
+  amount          Float
+  paymentMethod   String?  // wechat/alipay
+  paymentStatus   String   @default("pending") // pending/paid/refunded/failed
+  screenshotUrl   String?  // 支付截图URL
+  reviewedAt      DateTime? // 审核时间
+  reviewedBy      String?  // 审核人
+  reviewNote      String?  // 审核备注
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([orderNo])
+  @@index([userEmail])
+  @@index([paymentStatus])
+}
+
+// 管理员通知表
+model AdminNotification {
+  id        String   @id @default(cuid())
+  type      String   // PAYMENT_SCREENSHOT/NEW_ORDER/USER_REGISTER
+  title     String
+  content   String
+  orderId   String?  // 关联订单ID
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// =====================================================
+// 六层数据资产架构
+// =====================================================
+
+// Layer 1: 企业素材库（客户私有）
+model Material {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  category  String   // 资质证书/业绩案例/技术方案/人员简历/财务材料/投标模板/其他
+  content   String   @default("")
+  tags      String   @default("[]") // JSON数组
+  fileType  String   @default("text") // text/pdf/doc/xls
+  fileName  String?
+  fileUrl   String?
+  metadata  String   @default("{}")
+  usageCount Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([category])
+}
+
+// Layer 2: 行业规则库（仅后端调用，闭源）
+model IndustryRule {
+  id        String   @id @default(cuid())
+  category  String   // 投标流程/资格要求/技术标准/商务要求
+  title     String
+  content   String
+  industry  String?  // 行业分类，null表示通用
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([category])
+  @@index([industry])
+}
+
+// Layer 3: 评分规则库（仅后台管理，闭源）
+model ScoringRule {
+  id        String   @id @default(cuid())
+  category  String   // 技术评分/商务评分/价格评分/综合评分
+  title     String
+  content   String
+  industry  String?  // 行业分类
+  weight    Float    @default(0) // 权重百分比
+  maxScore  Float    @default(100) // 最高分
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([category])
+  @@index([industry])
+}
+
+// Layer 4: 废标规则库（仅后台管理，闭源）
+model WasteRule {
+  id        String   @id @default(cuid())
+  category  String   // 资格废标/技术废标/商务废标/格式废标
+  title     String
+  content   String
+  industry  String?  // 行业分类
+  severity  String   @default("critical") // critical/warning/info
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([category])
+  @@index([industry])
+}
+
+// Layer 5: 案例中心（平台+用户匿名投稿）
+model Case {
+  id              String   @id @default(cuid())
+  title           String
+  source          String   // platform/anonymous/expert
+  industry        String?  // 行业分类
+  content         String
+  summary         String?  // 摘要
+  status          String   @default("published") // pending/published/rejected
+  isPublic        Boolean  @default(false) // 是否对外公开
+  expertComment   String?  // 专家点评
+  tags            String   @default("[]") // JSON数组
+  views           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([source])
+  @@index([status])
+  @@index([isPublic])
+}
+
+// 用户匿名投稿（待审核）
+model CaseSubmission {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  industry      String?
+  content       String   // 原始内容
+  anonymized    String?  // 脱敏后内容
+  status        String   @default("pending") // pending/approved/rejected
+  rejectReason  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([status])
+}
+
+// Layer 6: 招投标智库（平台品牌，100%公开）
+model ThinkTankArticle {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique // URL友好标识
+  category    String   // 法规解读/废标案例/决策推演/行业洞察/技术趋势
+  content     String   // Markdown格式
+  summary     String?  // 摘要
+  tags        String   @default("[]") // JSON数组
+  coverImage  String?
+  isPublished Boolean  @default(false)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([slug])
+  @@index([category])
+  @@index([isPublished])
+}
+
+// 法规库（各省市招投标法规）
+model Regulation {
+  id          String   @id @default(cuid())
+  title       String
+  region      String   // 国家/省份/城市
+  category    String   // 招标投标法/政府采购法/实施条例/管理办法
+  content     String   // 解析后的文本内容
+  sourceFile  String?  // 原始文件名
+  publishDate String?  // 发布日期
+  isActive    Boolean  @default(true)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([region])
+  @@index([category])
+}

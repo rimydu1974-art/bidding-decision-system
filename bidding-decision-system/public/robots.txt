@@ -1,0 +1,10 @@
+# robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+Disallow: /user-center
+
+Sitemap: https://bidding-decision-system.vercel.app/sitemap.xml
