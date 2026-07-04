@@ -123,6 +123,12 @@ src/app/api/admin/settings/
 # 公告管理
 src/app/api/admin/announcement/
 
+# API文档页面
+src/app/api-docs/
+
+# AI服务配置
+src/lib/ai/
+
 # ==================== AI成本 ====================
 src/lib/quota.ts
 src/lib/pricing.ts
@@ -197,6 +203,7 @@ prisma/seed-industries.ts
 src/app/user-center/
 public/qr-alipay.png
 public/qr-wechat.png
+docs/
 
 # ==================== 引擎包（规则/评分/风险引擎） ====================
 packages/core/src/engines/
