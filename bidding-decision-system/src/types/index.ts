@@ -141,6 +141,9 @@ export interface ScoringRules {
   objectiveSubjectiveRatio: string;
   voidBidExplanation: string;
   specialScoringRequirements: string;
+  priceScoreDetail: string;
+  commercialScoreDetail: string;
+  technicalScoreDetail: string;
   items: ScoringItem[];
   requiredCompanyCertificates: string[];
   requiredPersonnelCertificates: string[];

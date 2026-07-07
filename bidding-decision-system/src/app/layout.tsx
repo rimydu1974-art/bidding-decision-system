@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { LOW_PRICE, HIGH_PRICE, OFFER_COUNT } from "@/lib/pricing";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+const notoSansSC = Noto_Sans_SC({
+  variable: "--font-noto-sans-sc",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -119,7 +125,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${notoSansSC.variable} h-full antialiased`}
     >
       <head>
         <script

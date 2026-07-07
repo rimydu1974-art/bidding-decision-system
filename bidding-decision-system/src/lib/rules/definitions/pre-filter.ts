@@ -1,0 +1,35 @@
+import { RuleDefinition } from '../types';
+
+export const PRE_FILTER_RULES: RuleDefinition[] = [
+  {
+    id: 'PRE1',
+    name: '强制招标范围判断',
+    description: '判断项目是否属于法定强制招标范围，决定后续所有合规规则是否适用',
+    category: 'pre-filter',
+    riskLevel: 'low',
+    interactionType: 'display-only',
+    detectionMethod: 'manual',
+    industries: ['通用'],
+    regions: ['全国'],
+    legalBasis: '《招标投标法》第3条',
+    confidence: 'high',
+    isPrecondition: true,
+    note: '这是所有其他规则能否适用的前提条件，必须放在最前面',
+    uiNote: 'ℹ️ 前置判断：项目是否属于强制招标范围',
+  },
+  {
+    id: 'PRE2',
+    name: '资金来源核实',
+    description: '资金来源不明确/未披露，应列入风险清单',
+    category: 'pre-filter',
+    riskLevel: 'medium',
+    interactionType: 'banner-check',
+    detectionMethod: 'manual',
+    industries: ['通用'],
+    regions: ['全国'],
+    legalBasis: '司法判例',
+    confidence: 'high',
+    note: '投标人应从多角度核实预算情况，对政府、事业单位类客户尤其要核实',
+    uiNote: '🟡 提示：资金来源不明确',
+  },
+];

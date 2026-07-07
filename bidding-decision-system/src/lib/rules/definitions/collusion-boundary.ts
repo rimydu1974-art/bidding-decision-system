@@ -1,0 +1,38 @@
+import { RuleDefinition } from '../types';
+
+export const COLLUSION_BOUNDARY_RULES: RuleDefinition[] = [
+  {
+    id: 'B1',
+    name: '多公司投标≠串通投标',
+    description: '一投标人以多个公司名义参与投标，需叠加报价协同证据才构成串通',
+    category: 'collusion-boundary',
+    riskLevel: 'medium',
+    interactionType: 'banner-check',
+    detectionMethod: 'combined',
+    industries: ['通用'],
+    regions: ['全国'],
+    legalBasis: '司法判例',
+    legalSource: 'Dongweilawyer/Deheng Law/Mondaq判例分析',
+    reasoning: '单纯检测出关联公司同时投标不能直接判定围标，必须叠加报价协同证据',
+    confidence: 'high',
+    note: '单一信号=中风险，需多信号叠加',
+    uiNote: '⚠️ 单一信号不足以判定，需多信号叠加',
+  },
+  {
+    id: 'B2',
+    name: '招标人与投标人共谋',
+    description: '招标人与投标人共谋，采取泄露标底、说情打招呼等方式规避正常招标程序',
+    category: 'collusion-boundary',
+    riskLevel: 'critical',
+    interactionType: 'popup-confirm',
+    detectionMethod: 'ai-semantic',
+    industries: ['通用'],
+    regions: ['全国'],
+    legalBasis: '司法判例',
+    legalSource: 'Dongweilawyer判例分析',
+    reasoning: '一般认定构成串通投标罪',
+    confidence: 'high',
+    note: '检测难度较高，可做成提示清单',
+    uiNote: '🔴 高风险：可能存在招标人与投标人共谋',
+  },
+];

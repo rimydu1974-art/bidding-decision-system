@@ -1,0 +1,12 @@
+{
+  "name": "wework-bot",
+  "version": "1.0.0",
+  "description": "企业微信智能机器人",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@wecom/aibot-node-sdk": "^1.0.6"
+  }
+}

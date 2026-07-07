@@ -29,7 +29,7 @@
   --color-border: #2e2e42;
   --color-muted: #6b7280;
   --color-card: #0f0f1a;
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-sans-sc), var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 

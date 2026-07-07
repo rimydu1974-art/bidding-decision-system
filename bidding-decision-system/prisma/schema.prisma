@@ -26,8 +26,14 @@ model User {
   aiQuotaUsed     Int            @default(0)  // 本月已用AI次数
   aiQuotaResetAt  DateTime       @default(now()) // 额度重置时间
   // 用户自备API
-  userApiKey      String?        // 用户自己的DeepSeek API Key
+  userApiKey      String?        // 用户自己的API Key
+  userApiProvider String?        // API Key提供商(deepseek/tongyi/zhipu等)
   apiKeyVerified  Boolean        @default(false) // API Key是否验证通过
+  // 飞书集成
+  feishuConnected Boolean        @default(false) // 飞书是否已连接
+  feishuSpaceId   String?        // 选中的飞书知识库空间ID
+  feishuSpaceName String?        // 知识库空间名称
+  feishuLastSyncAt DateTime?     // 最后同步时间
   // 统计
   totalAiCalls    Int            @default(0)  // 总AI调用次数
   totalOrders     Int            @default(0)  // 总订单数
@@ -107,18 +113,19 @@ model KnowledgeItem {
 }
 
 model Project {
-  id            String   @id @default(cuid())
-  userId        String
-  name          String
-  description   String?
-  industry      String?  // 行业分类
-  status        String   @default("active")
-  members       String   @default("[]")
-  tasks         String   @default("[]")
-  metadata      String   @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id])
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  industry        String?  // 行业分类
+  status          String   @default("active")
+  hasBidAnalysis  Boolean  @default(false) // 是否已做投标分析
+  members         String   @default("[]")
+  tasks           String   @default("[]")
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
 }
 
 model PricingPlan {
@@ -142,6 +149,7 @@ model Order {
   userId          String
   orderNo         String   @unique
   planName        String   // pro/enterprise/single
+  projectId       String?  // single计划关联的项目ID
   amount          Float
   paymentMethod   String?  // alipay/wechat
   paymentStatus   String   @default("pending") // pending/paid/refunded
@@ -281,6 +289,7 @@ model PaymentOrder {
   orderNo         String   @unique
   userEmail       String
   planName        String
+  projectId       String?  // single计划关联的项目ID
   amount          Float
   paymentMethod   String?  // wechat/alipay
   paymentStatus   String   @default("pending") // pending/paid/refunded/failed

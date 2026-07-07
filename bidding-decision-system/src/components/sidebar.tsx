@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Database,
   History,
+  Cloud,
 } from 'lucide-react';
 
 interface UserInfo {
@@ -153,6 +154,12 @@ const navigationConfig: NavigationConfig = {
   },
   bottom: [
     {
+      id: 'feishu-config',
+      label: '飞书配置',
+      icon: Cloud,
+      path: '/feishu-config',
+    },
+    {
       id: 'api-docs',
       label: 'API 文档',
       icon: FileCode,
@@ -219,7 +226,7 @@ export function Sidebar() {
   const isAdmin = user?.role === 'admin';
 
   const Logo = () => (
-    <svg width="130" height="36" viewBox="0 0 440 120">
+    <svg width="160" height="44" viewBox="0 0 440 120">
       <defs>
         <linearGradient id="sframe" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#7C3AED"/>
@@ -246,7 +253,7 @@ export function Sidebar() {
 
   const SidebarContent = () => (
     <>
-      <div className="h-16 flex items-center px-5 border-b border-[#2e2e42]">
+      <div className="h-20 flex items-center px-5 border-b border-[#2e2e42]">
         <Link href="/workspace" className="flex items-center">
           <Logo />
         </Link>
