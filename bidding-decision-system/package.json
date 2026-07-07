@@ -2,10 +2,6 @@
   "name": "bidding-decision-system",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
     "dev": "next dev --webpack",
     "build": "prisma generate && next build",
