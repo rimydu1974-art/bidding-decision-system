@@ -13,6 +13,7 @@ const publicPaths = [
   '/api/auth/reset-password',
   '/api/pricing',
   '/api/payment/callback',
+  '/api/debug',
 ];
 
 // 静态资源和特殊路径
