@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
     const isEnterprise = !!(userInfo?.plan === 'enterprise' && userInfo?.planExpiresAt && userInfo.planExpiresAt > now);
     const hasTempAccess = !!(userInfo?.tempExpiresAt && userInfo.tempExpiresAt > now);
     const isPaidUser = isPro || isEnterprise || hasTempAccess;
-    // 免费用户：10000 token（约5000-7000字）；付费用户：16000 token（约10000-12000字）
-    const maxTokens = isPaidUser ? 16000 : 10000;
+    // 免费用户：12000 token（约6000-8000字）；付费用户：16000 token（约10000-12000字）
+    const maxTokens = isPaidUser ? 16000 : 12000;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -207,9 +207,9 @@ export async function POST(request: NextRequest) {
     // 注入页码标记 - 5D溯源
     const contentWithAnchors = injectPageAnchors(cleanResult.cleaned);
 
-    const maxContentLength = 20000;
+    const maxContentLength = 40000;
     const truncatedContent = contentWithAnchors.length > maxContentLength
-      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前20000字符]'
+      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前40000字符]'
       : contentWithAnchors;
 
     // 构建控标参考规则库（注入到prompt中供AI参考）
@@ -311,10 +311,11 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       );
     }
 
-    // 验证AI返回是否包含7个必要字段
+    // 验证AI返回是否包含9个必要字段
     const requiredFields = [
       'basicInfo', 'financialInfo', 'qualificationRequirements',
-      'scoringRules', 'timeRequirements', 'projectInfo', 'phoneQuestions'
+      'scoringRules', 'timeRequirements', 'projectInfo', 'phoneQuestions',
+      'risks', 'checklist'
     ];
     const missingFields = requiredFields.filter(field => !analysisResult[field]);
     
@@ -322,9 +323,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       console.warn(`[Analyze] AI返回缺少字段: ${missingFields.join(', ')}`);
       // 为缺失的字段提供默认值
       for (const field of missingFields) {
-        if (field === 'phoneQuestions') {
-          analysisResult[field] = [];
-        } else if (field === 'qualificationRequirements') {
+        if (field === 'phoneQuestions' || field === 'risks' || field === 'checklist' || field === 'qualificationRequirements') {
           analysisResult[field] = [];
         } else {
           analysisResult[field] = {};

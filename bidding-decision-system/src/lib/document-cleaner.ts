@@ -3,6 +3,7 @@
 
 // 需要保留的章节关键词
 const KEEP_SECTIONS = [
+  // 原有关键词
   '招标公告',
   '投标人须知',
   '资格要求',
@@ -15,7 +16,8 @@ const KEEP_SECTIONS = [
   '商务需求',
   '技术需求',
   '实质性要求',
-  '废标条款',
+  '废标',
+  '无效报价',
   '否决投标',
   '投标有效期',
   '保证金',
@@ -23,30 +25,32 @@ const KEEP_SECTIONS = [
   '投标文件编制',
   '开标时间',
   '投标截止',
+  // 新增关键词
+  '付款方式',
+  '支付条款',
+  '履约保证金',
+  '投标保证金',
+  '质量保证金',
+  '项目概况',
+  '项目需求',
+  '工期要求',
+  '交付时间',
+  '质量要求',
+  '技术标准',
+  '售后服务',
+  '质保期',
+  '业绩要求',
+  '类似项目经验',
+  '人员要求',
+  '项目经理',
+  '投标报价',
+  '报价方式',
 ];
 
 // 需要过滤的内容模式（按优先级排列）
 const FILTER_PATTERNS: Array<{ pattern: RegExp; replacement: string; reason: string }> = [
-  // 工程量清单（通常很长且对决策无用）
-  { pattern: /工程量清单[\s\S]*?(?=投标人须知|评标办法|$)/g, replacement: '[工程量清单已过滤]', reason: '工程量清单' },
-  
-  // 合同通用条款（模板化内容）
-  { pattern: /合同通用条款[\s\S]*?(?=技术需求|商务需求|$)/g, replacement: '[合同通用条款已过滤]', reason: '合同通用条款' },
-  
   // 图纸目录（视觉内容无法分析）
   { pattern: /图纸目录[\s\S]*?(?=技术参数|技术需求|$)/g, replacement: '[图纸目录已过滤]', reason: '图纸目录' },
-  
-  // 附件列表（通常为表格模板）
-  { pattern: /附件\d+[\s\S]*?(?=投标人须知|评标办法|$)/g, replacement: '[附件已过滤]', reason: '附件' },
-  
-  // 工程概况（背景信息，非决策关键）
-  { pattern: /工程概况[\s\S]*?(?=招标公告|投标人须知|$)/g, replacement: '[工程概况已过滤]', reason: '工程概况' },
-  
-  // 投标人须知前附表（重复信息）
-  { pattern: /投标人须知前附表[\s\S]*?(?=投标人须知[^前]|评标办法|$)/g, replacement: '[前附表已过滤]', reason: '前附表' },
-  
-  // 法律法规引用（模板化）
-  { pattern: /根据《[^》]+》[\s\S]{0,200}?(?=\n|$)/g, replacement: '[法规引用已过滤]', reason: '法规引用' },
   
   // 过多的空白行
   { pattern: /\n{3,}/g, replacement: '\n\n', reason: '多余空行' },
@@ -111,11 +115,18 @@ function extractKeySections(text: string): string[] {
   const sections: string[] = [];
   let currentSection: string[] = [];
   let inKeepSection = false;
+  let preamble: string[] = [];
+  let preambleSaved = false;
   
   for (const line of lines) {
     const isKeepSection = KEEP_SECTIONS.some(kw => line.includes(kw));
     
     if (isKeepSection) {
+      // 保存前言（第一个关键词之前的内容，最多50行）
+      if (!preambleSaved && preamble.length > 0) {
+        sections.push(preamble.slice(0, 50).join('\n'));
+        preambleSaved = true;
+      }
       // 保存之前的章节
       if (currentSection.length > 0 && inKeepSection) {
         sections.push(currentSection.join('\n'));
@@ -124,6 +135,9 @@ function extractKeySections(text: string): string[] {
       inKeepSection = true;
     } else if (inKeepSection) {
       currentSection.push(line);
+    } else {
+      // 收集前言（第一个关键词之前）
+      preamble.push(line);
     }
   }
   
