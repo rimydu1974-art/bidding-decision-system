@@ -331,7 +331,7 @@ export default function TenderAnalyzePage() {
                 </div>
               </div>
             ) : (
-              <div ref={buttonRef} className="mt-6">
+              <div ref={buttonRef} className="sticky bottom-0 pt-4 pb-1 bg-[#0f0f1a] -mx-6 px-6 -mb-6 pb-6">
                 <button
                   onClick={handleAnalyze}
                   disabled={files.length === 0}

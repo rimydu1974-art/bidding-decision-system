@@ -133,19 +133,25 @@ export function AssessmentDisplay({
         a.download = `bid-report-${Date.now()}.pdf`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 1000);
         
         setExportProgress(100);
         setExportStatus('导出完成！');
+      } else {
+        setExportStatus('导出失败，请重试');
       }
     } catch (error) {
       console.error('PDF export failed:', error);
+      setExportStatus('导出失败，请重试');
     } finally {
       setTimeout(() => {
         setExportingPDF(false);
         setExportProgress(0);
         setExportStatus('');
-      }, 1500);
+      }, 2000);
     }
   };
 
@@ -175,19 +181,25 @@ export function AssessmentDisplay({
         a.download = `bid-assessment-${Date.now()}.xlsx`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 1000);
         
         setExportProgress(100);
         setExportStatus('导出完成！');
+      } else {
+        setExportStatus('导出失败，请重试');
       }
     } catch (error) {
       console.error('Excel export failed:', error);
+      setExportStatus('导出失败，请重试');
     } finally {
       setTimeout(() => {
         setExportingExcel(false);
         setExportProgress(0);
         setExportStatus('');
-      }, 1500);
+      }, 2000);
     }
   };
 
