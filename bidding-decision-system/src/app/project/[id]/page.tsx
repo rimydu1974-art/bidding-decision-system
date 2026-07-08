@@ -630,7 +630,7 @@ export default function ProjectDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `opencheck-report-${Date.now()}.xlsx`;
+      a.download = `投标决策评估-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.xlsx`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
@@ -664,7 +664,7 @@ export default function ProjectDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `opencheck-report-${Date.now()}.pdf`;
+      a.download = `投标决策报告-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
