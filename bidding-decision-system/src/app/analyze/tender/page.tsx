@@ -39,6 +39,7 @@ export default function TenderAnalyzePage() {
   const [progressStage, setProgressStage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const [userPlan, setUserPlan] = useState('free');
   const [analyzeCount, setAnalyzeCount] = useState(0);
   const [singleSpend, setSingleSpend] = useState(0);
@@ -112,6 +113,9 @@ export default function TenderAnalyzePage() {
 
       if (valid.length > 0) {
         setFiles((prev) => [...prev, ...valid]);
+        setTimeout(() => {
+          buttonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
       }
     },
     [files.length]
@@ -330,7 +334,7 @@ export default function TenderAnalyzePage() {
                 </div>
               </div>
             ) : (
-              <div className="mt-6">
+              <div ref={buttonRef} className="mt-6">
                 <button
                   onClick={handleAnalyze}
                   disabled={files.length === 0}
