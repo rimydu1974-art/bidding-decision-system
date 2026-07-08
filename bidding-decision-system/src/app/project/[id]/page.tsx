@@ -27,6 +27,7 @@ import {
   Send,
 } from 'lucide-react';
 import { UnlockComparisonTable } from '@/components/popup/unlock-comparison-table';
+import { NudgeCard } from '@/components/popup/nudge-card';
 
 // 解锁价格（与 src/lib/pricing.ts 保持一致）
 const UNLOCK_PRICE = 19;
@@ -492,6 +493,8 @@ export default function ProjectDetailPage() {
   const [assessment, setAssessment] = useState<AssessmentData | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [userPlan, setUserPlan] = useState('free');
+  const [analyzeCount, setAnalyzeCount] = useState(0);
+  const [singleSpend, setSingleSpend] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('eval');
   const [loading, setLoading] = useState(true);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -590,8 +593,10 @@ export default function ProjectDetailPage() {
     try {
       const res = await fetch('/api/user/quota');
       const data = await res.json();
-      setUserPlan(data.plan || 'free');
-      if (data.plan === 'pro' || data.plan === 'enterprise') {
+      setUserPlan(data.user?.plan || data.plan || 'free');
+      setAnalyzeCount(data.user?.totalAiCalls || data.quota?.used || 0);
+      setSingleSpend(data.user?.totalSpent || 0);
+      if (data.user?.plan === 'pro' || data.user?.plan === 'enterprise' || data.plan === 'pro' || data.plan === 'enterprise') {
         setIsUnlocked(true);
       } else {
         try {
@@ -1000,6 +1005,15 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               </div>
+
+              <NudgeCard
+                config={{
+                  plan: userPlan as 'free' | 'single',
+                  analyzeCount,
+                  singleSpend,
+                }}
+                onUpgrade={() => router.push('/pricing')}
+              />
             </div>
           )}
 

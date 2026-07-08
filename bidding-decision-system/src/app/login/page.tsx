@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FileText, Mail, Smartphone } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -88,32 +89,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  const Logo = () => (
-    <svg width="140" height="46" viewBox="0 0 440 120">
-      <defs>
-        <linearGradient id="aframe" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#7C3AED"/>
-          <stop offset="100%" stopColor="#06B6D4"/>
-        </linearGradient>
-        <linearGradient id="acheck" x1="100%" y1="100%" x2="0%" y2="0%">
-          <stop offset="0%" stopColor="#06B6D4"/>
-          <stop offset="50%" stopColor="#A78BFA"/>
-          <stop offset="100%" stopColor="#7C3AED"/>
-        </linearGradient>
-        <linearGradient id="aword" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#A78BFA"/>
-          <stop offset="100%" stopColor="#22D3EE"/>
-        </linearGradient>
-      </defs>
-      <rect x="10" y="10" width="100" height="100" rx="26" fill="none" stroke="url(#aframe)" strokeWidth="2.5"/>
-      <rect x="20" y="20" width="80" height="80" rx="19" fill="none" stroke="url(#aframe)" strokeWidth="0.6" opacity="0.25"/>
-      <polyline points="38,62 56,82 84,48" fill="none" stroke="url(#acheck)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="84" cy="48" r="3" fill="#22D3EE"/>
-      <text x="140" y="68" fontFamily="'Inter','Helvetica Neue','Arial Black','PingFang SC','Microsoft YaHei',sans-serif" fontSize="38" fontWeight="900" letterSpacing="-0.8" fill="url(#aword)">OpenCheck</text>
-      <text x="142" y="88" fontFamily="'Inter','Helvetica Neue','PingFang SC','Microsoft YaHei',sans-serif" fontSize="11" fontWeight="500" letterSpacing="1.2" fill="#8B9BB4">BID DECISION OS</text>
-    </svg>
-  );
 
   return (
     <div className="min-h-screen flex">

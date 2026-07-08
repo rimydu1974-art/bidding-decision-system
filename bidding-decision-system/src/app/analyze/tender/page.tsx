@@ -18,6 +18,7 @@ import {
   FileSearch,
 } from 'lucide-react';
 import { FeatureComparison } from '@/components/popup/feature-comparison';
+import { NudgeBanner } from '@/components/popup/nudge-banner';
 
 const MAX_FILES = 3;
 const MAX_SIZE_MB = 100;
@@ -39,9 +40,15 @@ export default function TenderAnalyzePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [userPlan, setUserPlan] = useState('free');
+  const [analyzeCount, setAnalyzeCount] = useState(0);
+  const [singleSpend, setSingleSpend] = useState(0);
 
   useEffect(() => {
-    fetch('/api/user/quota').then(r => r.json()).then(d => setUserPlan(d.user?.plan || 'free')).catch(() => {});
+    fetch('/api/user/quota').then(r => r.json()).then(d => {
+      setUserPlan(d.user?.plan || 'free');
+      setAnalyzeCount(d.user?.totalAiCalls || d.quota?.used || 0);
+      setSingleSpend(d.user?.totalSpent || 0);
+    }).catch(() => {});
   }, []);
 
   const ANALYZE_STAGES = [
@@ -240,9 +247,6 @@ export default function TenderAnalyzePage() {
               </p>
             </div>
 
-            {/* 功能清单 - 仅免费用户可见 */}
-            {userPlan === 'free' && <FeatureComparison />}
-
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 mt-3 p-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20">
@@ -342,6 +346,15 @@ export default function TenderAnalyzePage() {
           </div>
         </div>
       </main>
+
+      <NudgeBanner
+        config={{
+          plan: userPlan as 'free' | 'single',
+          analyzeCount,
+          singleSpend,
+        }}
+        onUpgrade={() => router.push('/pricing')}
+      />
     </div>
   );
 }

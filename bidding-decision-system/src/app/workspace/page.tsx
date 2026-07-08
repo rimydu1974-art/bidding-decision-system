@@ -7,6 +7,7 @@ import { ScoreGauge } from '@/components/ui/score-gauge';
 import { RiskBadge } from '@/components/ui/risk-badge';
 import { UpgradeDialog, shouldShowUpgrade, markUpgradeShown } from '@/components/popup/upgrade-dialog';
 import { AnnouncementDialog, shouldShowAnnouncement } from '@/components/popup/announcement-dialog';
+import { NudgeBanner } from '@/components/popup/nudge-banner';
 import {
   Upload,
   FileText,
@@ -54,6 +55,8 @@ export default function WorkspacePage() {
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementData, setAnnouncementData] = useState<any>(null);
+  const [analyzeCount, setAnalyzeCount] = useState(0);
+  const [singleSpend, setSingleSpend] = useState(0);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -110,6 +113,8 @@ export default function WorkspacePage() {
       const res = await fetch('/api/user/quota');
       const data = await res.json();
       setUserPlan(data.user?.plan || 'free');
+      setAnalyzeCount(data.user?.totalAiCalls || data.quota?.used || 0);
+      setSingleSpend(data.user?.totalSpent || 0);
     } catch {
       console.error('Failed to load quota');
     }
@@ -429,6 +434,15 @@ export default function WorkspacePage() {
         open={showAnnouncement}
         onClose={handleAnnouncementClose}
         announcement={announcementData}
+      />
+
+      <NudgeBanner
+        config={{
+          plan: userPlan as 'free' | 'single',
+          analyzeCount,
+          singleSpend,
+        }}
+        onUpgrade={() => router.push('/pricing')}
       />
     </div>
   );
