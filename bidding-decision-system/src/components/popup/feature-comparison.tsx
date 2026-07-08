@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Check, X, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, X } from 'lucide-react';
 
 interface FeatureRow {
   name: string;
@@ -22,8 +22,26 @@ const FEATURES: FeatureRow[] = [
 ];
 
 export function FeatureComparison() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVisible(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+
   return (
-    <div className="rounded-2xl border border-[#7c3aed]/30 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] p-6 mb-6">
+    <div className="rounded-2xl border border-[#7c3aed]/30 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] p-6 mb-6 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <button
+        onClick={() => setVisible(false)}
+        className="absolute top-3 right-3 text-[#6b7280] hover:text-white transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
       <div className="flex items-center gap-2 mb-4">
         <span className="text-lg">📋</span>
         <h3 className="text-base font-bold text-white">本项目完整分析包含</h3>

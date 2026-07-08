@@ -247,6 +247,9 @@ export default function TenderAnalyzePage() {
               </p>
             </div>
 
+            {/* 功能清单 - 免费用户可见，5秒后自动消失 */}
+            {userPlan === 'free' && <FeatureComparison />}
+
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 mt-3 p-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20">
