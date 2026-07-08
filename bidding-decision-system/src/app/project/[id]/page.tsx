@@ -630,13 +630,18 @@ export default function ProjectDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `投标决策评估-${project?.name || '未命名'}-${Date.now()}.xlsx`;
+      a.download = `opencheck-report-${Date.now()}.xlsx`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 1000);
     } catch (err) {
       console.error('Export Excel error:', err);
+      setExportLabel('导出失败，请重试');
+      setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
+      return;
     } finally {
       setExportLabel('导出完成！');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
@@ -659,13 +664,18 @@ export default function ProjectDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `投标决策报告-${project?.name || '未命名'}-${Date.now()}.pdf`;
+      a.download = `opencheck-report-${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 1000);
     } catch (err) {
       console.error('Export PDF error:', err);
+      setExportLabel('导出失败，请重试');
+      setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
+      return;
     } finally {
       setExportLabel('导出完成！');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
