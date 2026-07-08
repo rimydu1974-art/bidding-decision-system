@@ -9,7 +9,7 @@ export class AIService {
 
   constructor() {
     this.defaultProvider = process.env.AI_PROVIDER || 'deepseek';
-    this.fallbackProviders = (process.env.AI_FALLBACK_PROVIDERS || 'tongyi,zhipu').split(',');
+    this.fallbackProviders = (process.env.AI_FALLBACK_PROVIDERS || 'deepseek').split(',');
 
     this.registerProviders();
   }
