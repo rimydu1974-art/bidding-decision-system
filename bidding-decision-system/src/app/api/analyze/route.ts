@@ -14,6 +14,7 @@ import { RuleEngine, TenderData } from '@/lib/rules';
 import { ALL_RULES } from '@/lib/rules/definitions';
 import { trackBehavior } from '@/lib/behavior';
 import { extractAllRules, RuleExtractionResult } from '@/lib/rule-extractors';
+import { extractAllSymbolItems } from '@/lib/rule-extractors/symbol-extractor';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +105,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: quotaCheck.reason }, { status: 403 });
     }
 
+    // 判断用户类型，确定输出token限制
+    const userInfo = await prisma.user.findUnique({ where: { id: session.user.id } });
+    const now = new Date();
+    const isPro = !!(userInfo?.plan === 'pro' && userInfo?.planExpiresAt && userInfo.planExpiresAt > now);
+    const isEnterprise = !!(userInfo?.plan === 'enterprise' && userInfo?.planExpiresAt && userInfo.planExpiresAt > now);
+    const hasTempAccess = !!(userInfo?.tempExpiresAt && userInfo.tempExpiresAt > now);
+    const isPaidUser = isPro || isEnterprise || hasTempAccess;
+    // 免费用户：10000 token（约5000-7000字）；付费用户：16000 token（约10000-12000字）
+    const maxTokens = isPaidUser ? 16000 : 10000;
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const projectId = formData.get('projectId') as string;
@@ -178,21 +189,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 在文档清洗前提取▲★※符号，确保不丢失
+    const originalSymbols = extractAllSymbolItems(parsedDoc.content);
+    console.log(`[Analyze] 原始▲★※提取完成, 共${originalSymbols.length}项`);
+
     // 正则清洗 - 过滤非必要内容，降本防幻觉
     const cleanResult = cleanDocumentForAI(parsedDoc.content);
     console.log(`[Analyze] 文档清洗完成, 原始: ${cleanResult.originalLength}字符, 清洗后: ${cleanResult.cleanedLength}字符, 过滤: ${cleanResult.filteredReasons.join(', ')}`);
 
     // 规则提取 - 确定性数据，零幻觉
     const ruleResult = extractAllRules(cleanResult.cleaned);
+    // 合并原始提取的符号，确保不丢失
+    ruleResult.symbols = originalSymbols;
     console.log(`[Analyze] 规则提取完成, 耗时: ${ruleResult.extractionTime}ms`);
     console.log(`[Analyze] 废标条件: ${ruleResult.voidBid.conditions.length}条, 金额: ${ruleResult.financial.amounts.length}项, 时间: ${ruleResult.timelines.length}项, 资质: ${ruleResult.qualifications.length}项, 符号: ${ruleResult.symbols.length}项`);
 
     // 注入页码标记 - 5D溯源
     const contentWithAnchors = injectPageAnchors(cleanResult.cleaned);
 
-    const maxContentLength = 14000;
+    const maxContentLength = 20000;
     const truncatedContent = contentWithAnchors.length > maxContentLength
-      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前14000字符]'
+      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前20000字符]'
       : contentWithAnchors;
 
     // 构建控标参考规则库（注入到prompt中供AI参考）
@@ -253,11 +270,13 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       prompt: finalPrompt,
       useUserApiKey: !!(quotaCheck.useUserApiKey && user?.userApiKey),
       userApiKey: user?.userApiKey || undefined,
-      maxTokens: 8192,
+      maxTokens,
       temperature: 0.1,
     });
     
     console.log(`[Analyze] AI响应完成, 内容长度: ${aiResponse.content.length}`);
+    console.log(`[Analyze] AI响应前500字: ${aiResponse.content.substring(0, 500)}`);
+    console.log(`[Analyze] AI响应后500字: ${aiResponse.content.substring(aiResponse.content.length - 500)}`);
 
     await incrementAiUsageForFile(session.user.id, file.name);
 
@@ -276,11 +295,16 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
           analysisResult = JSON.parse(fixed);
         }
         console.log('[Analyze] JSON解析成功');
+        console.log('[Analyze] AI返回字段:', Object.keys(analysisResult).join(', '));
+        console.log('[Analyze] risks数量:', (analysisResult.risks || []).length);
+        console.log('[Analyze] checklist数量:', (analysisResult.checklist || []).length);
+        console.log('[Analyze] phoneQuestions数量:', (analysisResult.phoneQuestions || []).length);
       } else {
         throw new Error('无法解析AI响应');
       }
     } catch (parseError) {
       console.error('[Analyze] JSON解析失败:', parseError);
+      console.error('[Analyze] AI原始响应:', aiResponse.content.substring(0, 2000));
       return NextResponse.json(
         { error: `分析结果解析失败，请重试` },
         { status: 500 }
