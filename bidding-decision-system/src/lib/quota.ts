@@ -83,6 +83,14 @@ export async function checkAiQuota(userId: string): Promise<QuotaCheckResult> {
     };
   }
 
+  // 单次购买用户（19元）：有临时权限，使用平台API，不检查额度
+  if (hasTempAccess) {
+    return {
+      allowed: true,
+      useUserApiKey: false // 使用平台API
+    };
+  }
+
   // 免费用户检查额度 - 原子预扣防竞态
   if (user.aiQuotaUsed >= FREE_MONTHLY_QUOTA) {
     if (user.userApiKey && user.apiKeyVerified) {

@@ -26,9 +26,19 @@ export class OpenAICompatibleProvider implements AIProvider {
     const model = options?.model || this.defaultModel;
 
     // 智能检测baseUrl是否已包含版本路径，避免重复拼接 /v1
-    const url = this.baseUrl.endsWith('/v1') || this.baseUrl.endsWith('/v4')
-      ? `${this.baseUrl}/chat/completions`
-      : `${this.baseUrl}/v1/chat/completions`;
+    let url: string;
+    if (this.baseUrl.endsWith('/v1') || this.baseUrl.endsWith('/v4')) {
+      // 已包含版本路径，直接拼接
+      url = `${this.baseUrl}/chat/completions`;
+    } else if (this.name === 'doubao') {
+      // 豆包特殊处理：baseURL已经是完整路径，不需要再加 /v1
+      // doubao baseURL: https://ark.cn-beijing.volces.com/api/v3
+      // 正确endpoint: https://ark.cn-beijing.volces.com/api/v3/chat/completions
+      url = `${this.baseUrl}/chat/completions`;
+    } else {
+      // 其他厂商：添加 /v1 前缀
+      url = `${this.baseUrl}/v1/chat/completions`;
+    }
 
     console.log(`[${this.displayName}] 开始请求, model: ${model}, prompt长度: ${prompt.length}`);
 

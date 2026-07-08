@@ -6,6 +6,8 @@ const pdfParseLib = require('pdf-parse');
 const mammoth = require('mammoth');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const XLSX = require('xlsx');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const WordExtractor = require('word-extractor');
 
 // pdf-parse可能导出为module.default或module本身
 const pdfParse = pdfParseLib.default || pdfParseLib;
@@ -26,7 +28,7 @@ export async function parseFile(file: File): Promise<ParsedDocument> {
 
     case 'application/msword':
     case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-      const docResult = await parseWord(buffer);
+      const docResult = await parseWord(buffer, fileType);
       content = docResult.content;
       tables = docResult.tables;
       break;
@@ -101,21 +103,42 @@ async function parsePDF(
 }
 
 async function parseWord(
-  buffer: ArrayBuffer
+  buffer: ArrayBuffer,
+  fileType: string
 ): Promise<{ content: string; tables: TableData[] }> {
   try {
-    console.log('[Word] 开始解析, 大小:', buffer.byteLength);
+    console.log('[Word] 开始解析, 大小:', buffer.byteLength, '类型:', fileType);
+    
+    // .doc格式使用word-extractor解析
+    if (fileType === 'application/msword') {
+      console.log('[Word] 使用word-extractor解析.doc文件');
+      const extractor = new WordExtractor();
+      const result = await extractor.extract(buffer);
+      const content = result.getBody() || '';
+      console.log('[Word] .doc解析完成, 内容长度:', content.length);
+      
+      if (!content || content.trim().length < 5) {
+        console.warn('[Word] .doc解析内容过短或为空');
+        return { content: '[Word文件内容为空或无法解析，请尝试PDF版本]', tables: [] };
+      }
+      
+      const tables = extractTablesFromText(content);
+      return { content, tables };
+    }
+    
+    // .docx格式使用mammoth解析
+    console.log('[Word] 使用mammoth解析.docx文件');
     const uint8Array = new Uint8Array(buffer);
     const nodeBuffer = Buffer.from(uint8Array);
     console.log('[Word] Buffer创建成功');
     
     const result = await mammoth.extractRawText({ buffer: nodeBuffer });
-    console.log('[Word] 解析完成, 内容长度:', result.value?.length || 0);
+    console.log('[Word] .docx解析完成, 内容长度:', result.value?.length || 0);
     
     const content = result.value || '';
     
     if (!content || content.trim().length < 5) {
-      console.warn('[Word] 解析内容过短或为空');
+      console.warn('[Word] .docx解析内容过短或为空');
       return { content: '[Word文件内容为空或无法解析，请尝试PDF版本]', tables: [] };
     }
     
