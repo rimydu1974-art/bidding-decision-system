@@ -1,14 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 let cachedFontBase64: string | null = null;
 
 function getChineseFontBase64(): string {
   if (cachedFontBase64) return cachedFontBase64;
-  const fontPath = 'C:\\Windows\\Fonts\\simhei.ttf';
-  const fontBuffer = readFileSync(fontPath);
-  cachedFontBase64 = fontBuffer.toString('base64');
-  return cachedFontBase64;
+
+  const possiblePaths = [
+    join(process.cwd(), 'public', 'fonts', 'simhei.ttf'),
+    'C:\\Windows\\Fonts\\simhei.ttf',
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+    '/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc',
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/System/Library/Fonts/PingFang.ttc',
+  ];
+
+  for (const fontPath of possiblePaths) {
+    if (existsSync(fontPath)) {
+      const fontBuffer = readFileSync(fontPath);
+      cachedFontBase64 = fontBuffer.toString('base64');
+      return cachedFontBase64;
+    }
+  }
+
+  throw new Error('未找到中文字体文件。请将 simhei.ttf 放置在 public/fonts/ 目录下');
 }
 
 export async function POST(request: NextRequest) {
@@ -50,40 +66,43 @@ export async function POST(request: NextRequest) {
       gray: [128, 128, 128] as [number, number, number],
     };
 
-    // 封面页
+    // 封面页 - 顶部装饰条
     doc.setFillColor(...colors.brandPurple);
-    doc.rect(0, 0, pageWidth, 4, 'F');
+    doc.rect(0, 0, pageWidth, 5, 'F');
     doc.setFillColor(...colors.brandCyan);
-    doc.rect(0, 4, pageWidth, 2, 'F');
+    doc.rect(0, 5, pageWidth, 2, 'F');
 
-    let currentY = 50;
-    doc.setFontSize(28);
+    // 封面内容 - 垂直居中布局
+    const coverStartY = 55;
+    let currentY = coverStartY;
+
+    doc.setFontSize(30);
     doc.setTextColor(...colors.brandPurple);
     doc.setFont('SimHei', 'bold');
     doc.text('OpenCheck', pageWidth / 2, currentY, { align: 'center' });
-    currentY += 12;
-    doc.setFontSize(10);
+    currentY += 13;
+    doc.setFontSize(11);
     doc.setTextColor(139, 155, 180);
     doc.setFont('SimHei', 'normal');
     doc.text('BID DECISION OS', pageWidth / 2, currentY, { align: 'center' });
 
-    currentY += 25;
-    doc.setFontSize(22);
+    currentY += 28;
+    doc.setFontSize(24);
     doc.setTextColor(...colors.black);
     doc.setFont('SimHei', 'bold');
     doc.text('投标决策评估报告', pageWidth / 2, currentY, { align: 'center' });
 
-    currentY += 15;
+    currentY += 20;
     doc.setFontSize(12);
     doc.setTextColor(...colors.gray);
     doc.setFont('SimHei', 'normal');
     doc.text(`项目名称：${data.basicInfo?.projectName || data.projectName || '-'}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
+    currentY += 9;
     doc.text(`项目编号：${data.basicInfo?.projectCode || '-'}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
+    currentY += 9;
     const budget = data.financialInfo?.budget;
     doc.text(`预算金额：${budget ? `¥${Number(budget).toLocaleString()}` : '-'}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
+    currentY += 9;
     doc.text(`生成时间：${new Date().toLocaleString('zh-CN')}`, pageWidth / 2, currentY, { align: 'center' });
 
     const riskLevelMap: Record<string, { text: string; color: [number, number, number] }> = {
@@ -93,11 +112,11 @@ export async function POST(request: NextRequest) {
       low: { text: '低风险', color: colors.success },
     };
     const riskInfo = riskLevelMap[data.riskLevel || 'medium'] || riskLevelMap.medium;
-    currentY += 15;
+    currentY += 18;
     doc.setFillColor(...riskInfo.color);
-    const tagWidth = 40;
-    (doc as any).roundedRect(pageWidth / 2 - tagWidth / 2, currentY - 4, tagWidth, 9, 2, 2, 'F');
-    doc.setFontSize(10);
+    const tagWidth = 42;
+    (doc as any).roundedRect(pageWidth / 2 - tagWidth / 2, currentY - 5, tagWidth, 10, 2, 2, 'F');
+    doc.setFontSize(11);
     doc.setTextColor(255, 255, 255);
     doc.setFont('SimHei', 'bold');
     doc.text(riskInfo.text, pageWidth / 2, currentY + 1.5, { align: 'center' });
@@ -109,36 +128,41 @@ export async function POST(request: NextRequest) {
       'no-bid': { text: '不建议投标', color: colors.danger },
     };
     const recInfo = recMap[data.recommendation] || recMap.caution;
-    currentY += 15;
+    currentY += 16;
     doc.setFillColor(...recInfo.color);
-    (doc as any).roundedRect(pageWidth / 2 - tagWidth / 2, currentY - 4, tagWidth, 9, 2, 2, 'F');
-    doc.setFontSize(10);
+    (doc as any).roundedRect(pageWidth / 2 - tagWidth / 2, currentY - 5, tagWidth, 10, 2, 2, 'F');
+    doc.setFontSize(11);
     doc.setTextColor(255, 255, 255);
     doc.setFont('SimHei', 'bold');
     doc.text(recInfo.text, pageWidth / 2, currentY + 1.5, { align: 'center' });
     doc.setFont('SimHei', 'normal');
 
+    // 封面页 - 底部装饰条
     doc.setFillColor(...colors.brandPurple);
-    doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
+    doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     doc.setFillColor(...colors.brandCyan);
-    doc.rect(0, pageHeight - 6, pageWidth, 2, 'F');
+    doc.rect(0, pageHeight - 7, pageWidth, 2, 'F');
 
-    // 来源格式化
+    // 来源格式化 - 紧凑格式B
     const formatSource = (raw: string): string => {
       if (!raw || raw === '招标文件' || raw === '评分标准' || raw === '废标条款' || raw === '来源未定位') return '';
       if (raw.startsWith('章节：') || raw.startsWith('章节:')) {
         const pdfMatch = raw.match(/PDF第(\d+)页/);
         const textMatch = raw.match(/正文第(\d+)页/);
         const quoteMatch = raw.match(/引用原文[：:]"([^"]+)"/);
-        const parts: string[] = [];
         const chapterMatch = raw.match(/章节[：:]([^；;]+)/);
+        const parts: string[] = [];
         if (chapterMatch) parts.push(chapterMatch[1].trim());
-        if (pdfMatch) parts.push(`PDF第${pdfMatch[1]}页`);
-        if (textMatch && textMatch[1] !== pdfMatch?.[1]) parts.push(`正文第${textMatch[1]}页`);
-        if (quoteMatch) parts.push(`"${quoteMatch[1].substring(0, 30)}"`);
-        return parts.join('\n');
+        if (textMatch) parts.push(`P${textMatch[1]}`);
+        if (pdfMatch) parts.push(`PDF${pdfMatch[1]}`);
+        let result = parts.length > 0 ? `[${parts.join('/')}]` : '';
+        if (quoteMatch) {
+          const quote = quoteMatch[1].substring(0, 40);
+          result += ` 摘自：${quote}${quoteMatch[1].length > 40 ? '...' : ''}`;
+        }
+        return result;
       }
-      return raw.length > 60 ? raw.substring(0, 60) + '...' : raw;
+      return raw.length > 50 ? raw.substring(0, 50) + '...' : raw;
     };
 
     // ==================== 构建6列表格数据 ====================
@@ -342,6 +366,33 @@ export async function POST(request: NextRequest) {
     // ==================== 渲染 autoTable ====================
     doc.addPage();
 
+    // 明细分项格式化：将长文本按编号拆分展示
+    const formatNumberedItems = (text: string): string => {
+      if (!text || text === '-') return text;
+      // 检测是否包含编号模式
+      const hasNumberedPattern = /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
+        /\d+[.、）)]\s*/.test(text) ||
+        /[•●■◆▪]\s*/.test(text) ||
+        /[-—]\s{2,}/.test(text);
+      if (!hasNumberedPattern) return text;
+      // 在编号前添加换行，保留编号
+      let formatted = text
+        .replace(/([①②③④⑤⑥⑦⑧⑨⑩])/g, '\n$1')
+        .replace(/(\d+[.、）)])\s*/g, '\n$1')
+        .replace(/([•●■◆▪])\s*/g, '\n$1')
+        .replace(/\n{2,}/g, '\n')
+        .trim();
+      return formatted;
+    };
+
+    // 对所有行的keyPoint和detail列应用分项格式化
+    rows.forEach(row => {
+      if (!row.isSeparator) {
+        row.keyPoint = formatNumberedItems(row.keyPoint);
+        row.detail = formatNumberedItems(row.detail);
+      }
+    });
+
     // 合并类别列：相同category只显示第一次出现
     const categoryFirstSeen: Record<string, number> = {};
     rows.forEach((r, idx) => {
@@ -378,14 +429,14 @@ export async function POST(request: NextRequest) {
       margin: { left: margin, right: margin },
       tableWidth: 'auto',
       columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 28 },
-        3: { cellWidth: 78 },
-        4: { cellWidth: 62 },
-        5: { cellWidth: 42 },
+        0: { cellWidth: 12 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 90 },
+        4: { cellWidth: 72 },
+        5: { cellWidth: 45 },
       },
-      styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak', font: 'SimHei', lineHeight: 1.3 } as any,
+      styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', font: 'SimHei', lineHeight: 1.4 } as any,
       headStyles: { fillColor: colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 8 } as any,
       alternateRowStyles: { fillColor: [248, 248, 252] },
       didParseCell: (data: any) => {
@@ -397,7 +448,7 @@ export async function POST(request: NextRequest) {
             data.cell.styles.fillColor = row.separatorColor;
             data.cell.styles.textColor = colors.white;
             data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fontSize = 9;
+            data.cell.styles.fontSize = 10;
           }
           if (data.column.index === 0) {
             data.cell.raw = '';
@@ -422,10 +473,10 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(8);
     doc.setTextColor(139, 155, 180);
     doc.setFont('SimHei', 'bold');
-    doc.text('OpenCheck', margin, pageHeight - 10);
+    doc.text('OpenCheck', margin, pageHeight - 8);
     doc.setFont('SimHei', 'normal');
-    doc.text('BID DECISION OS', margin + 35, pageHeight - 10);
-    doc.text(`共 ${doc.getNumberOfPages()} 页`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+    doc.text('BID DECISION OS', margin + 35, pageHeight - 8);
+    doc.text(`共 ${doc.getNumberOfPages()} 页`, pageWidth - margin, pageHeight - 8, { align: 'right' });
 
     const pdfBuffer = doc.output('arraybuffer');
 

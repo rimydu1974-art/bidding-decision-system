@@ -214,7 +214,7 @@ export default function TenderAnalyzePage() {
             <p className="text-[#6b7280]">上传招标文件，AI 智能提取关键信息并评估风险</p>
           </div>
 
-          <div className="glass-card p-6 flex flex-col" style={{ minHeight: '480px' }}>
+          <div className="glass-card p-6 flex flex-col">
             {/* Upload Area */}
             <div
               onDragOver={handleDragOver}
@@ -288,9 +288,6 @@ export default function TenderAnalyzePage() {
                 ))}
               </div>
             )}
-
-            {/* Spacer */}
-            <div className="flex-1" />
 
             {/* Analyze Button / Progress Bar */}
             {analyzing ? (

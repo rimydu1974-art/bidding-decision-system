@@ -637,14 +637,12 @@ export default function ProjectDetailPage() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }, 1000);
+      setExportLabel('导出完成！');
+      setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     } catch (err) {
       console.error('Export Excel error:', err);
       setExportLabel('导出失败，请重试');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
-      return;
-    } finally {
-      setExportLabel('导出完成！');
-      setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     }
   };
 
@@ -671,14 +669,12 @@ export default function ProjectDetailPage() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }, 1000);
+      setExportLabel('导出完成！');
+      setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     } catch (err) {
       console.error('Export PDF error:', err);
       setExportLabel('导出失败，请重试');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
-      return;
-    } finally {
-      setExportLabel('导出完成！');
-      setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     }
   };
 
