@@ -4,7 +4,7 @@ import { join } from 'path';
 
 let cachedFontBase64: string | null = null;
 
-function getChineseFontBase64(): string {
+async function getChineseFontBase64(): Promise<string> {
   if (cachedFontBase64) return cachedFontBase64;
 
   const possiblePaths = [
@@ -24,6 +24,19 @@ function getChineseFontBase64(): string {
     }
   }
 
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.opencheck.com.cn';
+    const res = await fetch(`${baseUrl}/fonts/simhei.ttf`);
+    if (res.ok) {
+      const arrayBuffer = await res.arrayBuffer();
+      const fontBuffer = Buffer.from(arrayBuffer);
+      cachedFontBase64 = fontBuffer.toString('base64');
+      return cachedFontBase64;
+    }
+  } catch (e) {
+    console.error('Font fetch fallback failed:', e);
+  }
+
   throw new Error('未找到中文字体文件。请将 simhei.ttf 放置在 public/fonts/ 目录下');
 }
 
@@ -38,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const doc = new jsPDF('l', 'mm', 'a4');
 
-    const fontBase64 = getChineseFontBase64();
+    const fontBase64 = await getChineseFontBase64();
     (doc as any).addFileToVFS('SimHei.ttf', fontBase64);
     (doc as any).addFont('SimHei.ttf', 'SimHei', 'normal');
     (doc as any).addFont('SimHei.ttf', 'SimHei', 'bold');

@@ -207,9 +207,9 @@ export async function POST(request: NextRequest) {
     // 注入页码标记 - 5D溯源
     const contentWithAnchors = injectPageAnchors(cleanResult.cleaned);
 
-    const maxContentLength = 40000;
+    const maxContentLength = 80000;
     const truncatedContent = contentWithAnchors.length > maxContentLength
-      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前40000字符]'
+      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前80000字符]'
       : contentWithAnchors;
 
     // 构建控标参考规则库（注入到prompt中供AI参考）
@@ -277,8 +277,6 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     console.log(`[Analyze] AI响应完成, 内容长度: ${aiResponse.content.length}`);
     console.log(`[Analyze] AI响应前500字: ${aiResponse.content.substring(0, 500)}`);
     console.log(`[Analyze] AI响应后500字: ${aiResponse.content.substring(aiResponse.content.length - 500)}`);
-
-    await incrementAiUsageForFile(session.user.id, file.name);
 
     trackBehavior({ userId: session.user.id, action: 'upload' });
     trackBehavior({ userId: session.user.id, action: 'analyze' });
@@ -694,6 +692,8 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
 
     // 保存文件Hash（用于去重）- 在assessment创建成功后执行
     await saveFileHash(fileHash, file.name, file.size, session.user.id, savedAssessment.id).catch(console.error);
+
+    await incrementAiUsageForFile(session.user.id, file.name).catch(console.error);
 
     return NextResponse.json({ assessment: savedAssessment });
   } catch (error) {
