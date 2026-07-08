@@ -614,29 +614,49 @@ export default function ProjectDetailPage() {
     router.push(`/payment?projectId=${projectId}&returnUrl=/project/${projectId}`);
   };
 
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 5000);
+  };
+
   const handleExportExcel = async () => {
     setShowExportMenu(false);
     setExporting(true);
     setExportLabel('正在生成Excel报告...');
     try {
+      if (!assessment) {
+        setExportLabel('无数据可导出');
+        setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
+        return;
+      }
       const res = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assessment, isPaid: isUnlocked }),
       });
-      if (!res.ok) throw new Error('导出失败');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('Export Excel API error:', res.status, errText);
+        throw new Error(`API返回错误 (${res.status})`);
+      }
       const blob = await res.blob();
-      setExportLabel('下载中...');
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `投标决策评估-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 1000);
+      if (blob.size === 0) {
+        console.error('Export Excel: received empty blob');
+        setExportLabel('生成失败：文件为空，请重试');
+        setTimeout(() => { setExporting(false); setExportLabel(''); }, 3000);
+        return;
+      }
+      const filename = `投标决策评估-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.xlsx`;
+      triggerDownload(blob, filename);
       setExportLabel('导出完成！');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     } catch (err) {
@@ -651,24 +671,30 @@ export default function ProjectDetailPage() {
     setExporting(true);
     setExportLabel('正在生成PDF报告...');
     try {
+      if (!assessment) {
+        setExportLabel('无数据可导出');
+        setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
+        return;
+      }
       const res = await fetch('/api/report/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assessment, isPaid: isUnlocked }),
       });
-      if (!res.ok) throw new Error('导出PDF失败');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('Export PDF API error:', res.status, errText);
+        throw new Error(`API返回错误 (${res.status})`);
+      }
       const blob = await res.blob();
-      setExportLabel('下载中...');
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `投标决策报告-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 1000);
+      if (blob.size === 0) {
+        console.error('Export PDF: received empty blob');
+        setExportLabel('生成失败：文件为空，请重试');
+        setTimeout(() => { setExporting(false); setExportLabel(''); }, 3000);
+        return;
+      }
+      const filename = `投标决策报告-${assessment?.basicInfo?.projectName || project?.name || '未命名'}-${Date.now()}.pdf`;
+      triggerDownload(blob, filename);
       setExportLabel('导出完成！');
       setTimeout(() => { setExporting(false); setExportLabel(''); }, 1500);
     } catch (err) {
