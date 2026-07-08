@@ -90,7 +90,7 @@ export default function LoginPage() {
   };
 
   const Logo = () => (
-    <svg width="110" height="36" viewBox="0 0 440 120">
+    <svg width="140" height="46" viewBox="0 0 440 120">
       <defs>
         <linearGradient id="aframe" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#7C3AED"/>
