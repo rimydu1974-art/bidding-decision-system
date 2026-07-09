@@ -163,6 +163,7 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="canonical" href="https://www.opencheck.com.cn" />
+        <meta name="google-site-verification" content="googled19dd6751db24ff1" />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
