@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const botId = "aibzOh0BSdIZ56FcMHwce9Ev55gSCcJxwNz";
-const secret = "C96JhjPbvJchJ43OajNGCDoO4cFx4XmPoU7EjQcgJbM";
+const secret = process.env.WECHAT_BOT_SECRET;
 
 console.log("=== OpenCheck 支付通知机器人 ===\n");
 

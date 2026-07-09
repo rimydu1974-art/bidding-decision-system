@@ -1,7 +1,7 @@
 const { WSClient } = require('@wecom/aibot-node-sdk');
 
 const botId = "aibzOh0BSdIZ56FcMHwce9Ev55gSCcJxwNz";
-const secret = "C96JhjPbvJchJ43OajNGCDoO4cFx4XmPoU7EjQcgJbM";
+const secret = process.env.WECHAT_BOT_SECRET;
 
 console.log("=== 测试机器人回复 ===");
 console.log("请给机器人发一条消息\n");

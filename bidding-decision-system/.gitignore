@@ -55,3 +55,28 @@ server.log
 
 # Prisma迁移备份
 prisma/migrations/
+
+# 开发工具脚本（包含敏感信息）
+check-user.js
+create-test-user.js
+switch-to-free.js
+test-switch-free.js
+test-switch-plan.js
+verify-user.js
+test-login.js
+test-db.js
+test-doubao.js
+test-doubao2.js
+test-query.js
+update-articles-api.js
+update-brand.sh
+run-push.js
+seed-brand-mentions.js
+seed-geo-articles.js
+scripts/check-users.js
+scripts/fix-user-names.js
+scripts/reset-admin-password.js
+scripts/test-analyze-flow.cjs
+scripts/test-analyze-flow.mjs
+scripts/test-db.js
+scripts/test-feishu.js
