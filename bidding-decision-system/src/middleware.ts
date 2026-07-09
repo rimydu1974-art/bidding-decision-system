@@ -30,6 +30,8 @@ const staticPaths = [
   '/_next',
   '/favicon.ico',
   '/sitemap.ts',
+  '/sitemap.xml',
+  '/robots.txt',
 ];
 
 // 管理员路径前缀
