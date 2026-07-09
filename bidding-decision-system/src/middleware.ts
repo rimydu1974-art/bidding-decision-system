@@ -17,6 +17,7 @@ const publicPaths = [
   '/baidu_verify_codeva-DKjxJNANHK.html',
   '/thinktank',
   '/sitemap.xml',
+  '/api/og',
 ];
 
 // 静态资源和特殊路径
