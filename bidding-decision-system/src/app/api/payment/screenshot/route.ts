@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
+import prisma from '@/lib/db';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'];
@@ -46,6 +47,23 @@ export async function POST(req: NextRequest) {
     // 验证orderNo格式，防止路径穿越
     if (!/^[a-zA-Z0-9\-_]+$/.test(orderNo)) {
       return NextResponse.json({ error: '无效的订单号' }, { status: 400 });
+    }
+
+    // 验证订单存在且属于当前用户
+    const order = await prisma.order.findUnique({
+      where: { orderNo },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: '订单不存在' }, { status: 404 });
+    }
+
+    if (order.userId !== session.user.id) {
+      return NextResponse.json({ error: '无权操作此订单' }, { status: 403 });
+    }
+
+    if (order.paymentStatus !== 'pending') {
+      return NextResponse.json({ error: '订单状态异常' }, { status: 400 });
     }
 
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {

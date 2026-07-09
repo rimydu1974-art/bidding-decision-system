@@ -152,17 +152,28 @@ export async function getQuotaInfo(userId: string): Promise<QuotaInfo | null> {
 
   const now = new Date();
 
-  // 检查是否需要重置额度
+  // 检查是否需要重置额度 - 使用原子操作避免竞态条件
   const lastReset = new Date(user.aiQuotaResetAt);
   const needReset = now.getMonth() !== lastReset.getMonth() || 
                     now.getFullYear() !== lastReset.getFullYear();
 
   if (needReset) {
-    await prisma.user.update({
-      where: { id: user.id },
+    // 使用updateMany with条件检查，与checkAiQuota()保持一致
+    const resetResult = await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        aiQuotaResetAt: lastReset, // 乐观锁
+      },
       data: { aiQuotaUsed: 0, aiQuotaResetAt: now },
     });
-    user.aiQuotaUsed = 0;
+    
+    if (resetResult.count > 0) {
+      user.aiQuotaUsed = 0;
+    } else {
+      // 其他请求已经重置过了，重新读取最新值
+      const refreshed = await prisma.user.findUnique({ where: { id: userId } });
+      if (refreshed) user.aiQuotaUsed = refreshed.aiQuotaUsed;
+    }
   }
 
   const isPro = !!(user.plan === 'pro' && user.planExpiresAt && user.planExpiresAt > now);
@@ -229,6 +240,19 @@ export async function incrementAiUsage(userId: string): Promise<void> {
     where: { id: userId },
     data: {
       totalAiCalls: { increment: 1 },
+    },
+  });
+}
+
+// 退还AI配额（分析失败时调用）
+export async function refundAiQuota(userId: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: {
+      id: userId,
+      aiQuotaUsed: { gt: 0 }, // 确保不会减成负数
+    },
+    data: {
+      aiQuotaUsed: { decrement: 1 },
     },
   });
 }

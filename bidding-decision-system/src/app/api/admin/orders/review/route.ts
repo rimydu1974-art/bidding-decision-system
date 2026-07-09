@@ -36,6 +36,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '订单不存在' }, { status: 404 });
     }
 
+    // 幂等性检查：如果订单已处理，直接返回成功
+    if (action === 'approve' && order.paymentStatus === 'paid') {
+      return NextResponse.json({ success: true, message: '订单已处理' });
+    }
+
     // 更新订单状态
     const newStatus = action === 'approve' ? 'paid' : 'failed';
     const reviewedAt = new Date();

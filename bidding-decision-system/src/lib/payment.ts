@@ -48,7 +48,7 @@ export function getPaymentConfig(): PaymentConfig {
   const provider = (process.env.PAYMENT_PROVIDER as PaymentConfig['provider']) || 'mock';
 
   // 生产环境禁止使用Mock支付
-  if (provider === 'mock' && process.env.NODE_ENV === 'production' && process.env.PAYMENT_PROVIDER !== 'mock') {
+  if (provider === 'mock' && process.env.NODE_ENV === 'production') {
     throw new Error('生产环境不允许使用Mock支付，请配置PAYMENT_PROVIDER=wechat或alipay');
   }
 

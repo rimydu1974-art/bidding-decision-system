@@ -4,7 +4,7 @@ import { callAI } from '@/lib/ai/call-ai';
 import { TENDER_ANALYSIS_PROMPT } from '@/lib/ai/prompts/tender-analysis';
 import { generateId } from '@/lib/utils';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
-import { checkAiQuota, incrementAiUsageForFile } from '@/lib/quota';
+import { checkAiQuota, incrementAiUsageForFile, refundAiQuota } from '@/lib/quota';
 import { calculateFileHash, checkFileExists, saveFileHash } from '@/lib/file-hash';
 import { cleanDocumentForAI, getCleaningStats } from '@/lib/document-cleaner';
 import { injectPageAnchors } from '@/lib/source-trace';
@@ -188,6 +188,8 @@ export async function POST(request: NextRequest) {
     const parsedDoc = await parseFile(file);
     console.log(`[Analyze] 文件解析完成, 内容长度: ${parsedDoc.content.length}`);
     if (!parsedDoc.content || parsedDoc.content.length < 10) {
+      // 退还预扣的配额
+      await refundAiQuota(session.user.id);
       return NextResponse.json(
         { error: '文件内容为空或无法解析，请上传有效的招标文件' },
         { status: 400 }
@@ -198,6 +200,8 @@ export async function POST(request: NextRequest) {
     if (/^\[(Word|PDF|Excel)解析(失败|错误)/.test(parsedDoc.content.trim()) ||
         /^\[.+文件内容为空/.test(parsedDoc.content.trim())) {
       console.error(`[Analyze] 文件解析失败，错误内容: ${parsedDoc.content.substring(0, 200)}`);
+      // 退还预扣的配额
+      await refundAiQuota(session.user.id);
       return NextResponse.json(
         { error: '文件解析失败，请检查文件是否损坏，或尝试转换为PDF后重新上传' },
         { status: 400 }
@@ -207,6 +211,8 @@ export async function POST(request: NextRequest) {
     // 内容过短（<300字符），可能是解析异常
     if (parsedDoc.content.length < 300) {
       console.warn(`[Analyze] 文件内容过短(${parsedDoc.content.length}字符)，可能解析异常`);
+      // 退还预扣的配额
+      await refundAiQuota(session.user.id);
       return NextResponse.json(
         { error: `文件内容过短（仅${parsedDoc.content.length}字符），可能文件格式有误，请尝试转换为PDF后上传` },
         { status: 400 }
@@ -383,6 +389,8 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         console.error(`[Analyze] JSON解析失败(第${attempt}次):`, parseError);
         console.error('[Analyze] AI原始响应:', aiResponse.content.substring(0, 2000));
         if (attempt >= 2) {
+          // 退还预扣的配额
+          await refundAiQuota(session.user.id);
           return NextResponse.json(
             { error: 'AI分析失败：招标文件可能含有过多图片或特殊格式，请尝试导出为纯文本PDF后重试' },
             { status: 500 }
@@ -393,6 +401,8 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     }
     
     if (!analysisResult) {
+      // 退还预扣的配额
+      await refundAiQuota(session.user.id);
       return NextResponse.json(
         { error: 'AI分析失败，请重试' },
         { status: 500 }

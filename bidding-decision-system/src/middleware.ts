@@ -13,7 +13,6 @@ const publicPaths = [
   '/api/auth/reset-password',
   '/api/pricing',
   '/api/payment/callback',
-  '/api/debug',
   '/baidu_verify_codeva-DKjxJNANHK.html',
   '/thinktank',
   '/sitemap.xml',
