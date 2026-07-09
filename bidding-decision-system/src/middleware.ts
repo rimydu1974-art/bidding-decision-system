@@ -18,6 +18,7 @@ const publicPaths = [
   '/thinktank',
   '/sitemap.xml',
   '/api/og',
+  '/tools',
 ];
 
 // 静态资源和特殊路径

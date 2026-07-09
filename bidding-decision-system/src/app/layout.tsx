@@ -120,6 +120,11 @@ const jsonLd = {
   softwareVersion: "1.0",
   datePublished: "2026-06-20",
   dateModified: "2026-07-09",
+  sameAs: [
+    "https://gitee.com/rimydu/bidding-decision-system",
+    "https://github.com/rimydu1974-art/bidding-decision-system",
+    "https://bidding-decision-system.vercel.app",
+  ],
 };
 
 const faqJsonLd = {

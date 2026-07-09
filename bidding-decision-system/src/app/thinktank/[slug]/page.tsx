@@ -116,6 +116,19 @@ export default async function ArticlePage({ params }: Props) {
     ],
   };
 
+  // Extract steps from content for HowTo schema
+  const stepMatches = article.content.match(/<h[23][^>]*>([^<]*(?:步|Step|STEP)[^<]*)<\/h[23]>/gi);
+  const howToLd = stepMatches && stepMatches.length >= 2 ? {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: article.title,
+    step: stepMatches.slice(0, 8).map((m: string, i: number) => ({
+      '@type': 'HowToStep',
+      position: i + 1,
+      name: m.replace(/<\/?h[23][^>]*>/gi, '').trim(),
+    })),
+  } : null;
+
   const formatDate = (d: Date | string) => {
     try { return new Date(d).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }); } catch { return String(d); }
   };
@@ -125,6 +138,7 @@ export default async function ArticlePage({ params }: Props) {
       {/* JSON-LD structured data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      {howToLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToLd) }} />}
 
       <main className="mx-auto max-w-3xl px-4 sm:px-8 pb-16">
         {/* Breadcrumb */}
