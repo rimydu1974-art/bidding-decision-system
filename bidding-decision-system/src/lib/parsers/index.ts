@@ -14,8 +14,10 @@ const pdfParse = pdfParseLib.default || pdfParseLib;
 
 export async function parseFile(file: File): Promise<ParsedDocument> {
   const buffer = await file.arrayBuffer();
-  const fileType = file.type || getFileTypeFromName(file.name);
-
+  // 优先使用文件扩展名判定类型（浏览器对 .doc 文件可能误报 MIME）
+  const fileType = getFileTypeFromName(file.name) !== 'application/octet-stream'
+    ? getFileTypeFromName(file.name)
+    : file.type || getFileTypeFromName(file.name);
   let content = '';
   let tables: TableData[] = [];
 

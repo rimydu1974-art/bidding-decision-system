@@ -638,6 +638,12 @@ export default function ProjectDetailPage() {
         setTimeout(() => { setExporting(false); setExportLabel(''); }, 2000);
         return;
       }
+      // 验证关键字段存在
+      if (!assessment.basicInfo && !assessment.projectInfo) {
+        setExportLabel('数据不完整，请重新分析招标文件');
+        setTimeout(() => { setExporting(false); setExportLabel(''); }, 3000);
+        return;
+      }
       const res = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -647,6 +653,13 @@ export default function ProjectDetailPage() {
         const errText = await res.text().catch(() => '');
         console.error('Export Excel API error:', res.status, errText);
         throw new Error(`API返回错误 (${res.status})`);
+      }
+      // 验证响应是Excel类型
+      const contentType = res.headers.get('Content-Type') || '';
+      if (!contentType.includes('spreadsheet') && !contentType.includes('excel')) {
+        const text = await res.text();
+        console.error('Export Excel: unexpected content type', contentType, text.substring(0, 200));
+        throw new Error('服务器返回了非Excel格式的数据');
       }
       const blob = await res.blob();
       if (blob.size === 0) {
@@ -770,7 +783,7 @@ export default function ProjectDetailPage() {
             <div className="relative">
               <button 
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                disabled={exporting}
+                disabled={exporting || loading || !assessment}
                 className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />

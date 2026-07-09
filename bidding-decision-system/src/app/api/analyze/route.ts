@@ -181,10 +181,28 @@ export async function POST(request: NextRequest) {
 
     const parsedDoc = await parseFile(file);
     console.log(`[Analyze] 文件解析完成, 内容长度: ${parsedDoc.content.length}`);
-
     if (!parsedDoc.content || parsedDoc.content.length < 10) {
       return NextResponse.json(
         { error: '文件内容为空或无法解析，请上传有效的招标文件' },
+        { status: 400 }
+      );
+    }
+
+    // 检测是否为解析错误信息（如 [Word解析失败: ...]）
+    if (/^\[(Word|PDF|Excel)解析(失败|错误)/.test(parsedDoc.content.trim()) ||
+        /^\[.+文件内容为空/.test(parsedDoc.content.trim())) {
+      console.error(`[Analyze] 文件解析失败，错误内容: ${parsedDoc.content.substring(0, 200)}`);
+      return NextResponse.json(
+        { error: '文件解析失败，请检查文件是否损坏，或尝试转换为PDF后重新上传' },
+        { status: 400 }
+      );
+    }
+
+    // 内容过短（<300字符），可能是解析异常
+    if (parsedDoc.content.length < 300) {
+      console.warn(`[Analyze] 文件内容过短(${parsedDoc.content.length}字符)，可能解析异常`);
+      return NextResponse.json(
+        { error: `文件内容过短（仅${parsedDoc.content.length}字符），可能文件格式有误，请尝试转换为PDF后上传` },
         { status: 400 }
       );
     }

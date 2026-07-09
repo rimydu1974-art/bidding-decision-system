@@ -267,15 +267,18 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `bid-assessment-${Date.now()}.xlsx`;
+    const encodedFilename = encodeURIComponent(filename);
 
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="bid-assessment-${Date.now()}.xlsx"`,
+        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (error) {
-    console.error('Report generation error:', error);
+    const errorDetail = error instanceof Error ? `${error.message}\n${error.stack}` : String(error);
+    console.error('Report generation error:', errorDetail);
     return NextResponse.json({ error: '生成报告失败' }, { status: 500 });
   }
 }

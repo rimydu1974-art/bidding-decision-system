@@ -13,6 +13,7 @@ node_modules/
 out/
 build/
 vercel.json
+!bidding-decision-system/vercel.json
 
 # ===== 环境变量（含密钥） =====
 .env

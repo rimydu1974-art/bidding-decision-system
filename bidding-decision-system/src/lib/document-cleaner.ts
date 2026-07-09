@@ -60,9 +60,9 @@ const FILTER_PATTERNS: Array<{ pattern: RegExp; replacement: string; reason: str
   { pattern: /。。+/g, replacement: '。', reason: '重复句号' },
   { pattern: /，，+/g, replacement: '，', reason: '重复逗号' },
   
-  // 页眉页脚
+  // 页眉页脚 — 仅匹配明确的页码格式
   { pattern: /第\s*\d+\s*页\s*[共共]\s*\d+\s*页/g, replacement: '', reason: '页码' },
-  { pattern: /投标文件\s*[\s\S]{0,30}?(\d+)/g, replacement: '', reason: '页眉' },
+  { pattern: /^投标文件\s{0,5}$/gm, replacement: '', reason: '页眉-投标文件标题' },
 ];
 
 // 清洗文档内容
@@ -77,7 +77,7 @@ export function cleanDocumentForAI(text: string): {
   let filteredCount = 0;
   const filteredReasons: string[] = [];
   const originalLength = text.length;
-  
+
   // 应用过滤模式
   for (const { pattern, replacement, reason } of FILTER_PATTERNS) {
     const before = cleaned.length;
@@ -87,19 +87,25 @@ export function cleanDocumentForAI(text: string): {
       filteredReasons.push(reason);
     }
   }
-  
-  // 提取关键章节（可选）
-  const sections = extractKeySections(cleaned);
-  if (sections.length > 0) {
-    cleaned = sections.join('\n\n');
+
+  // 关键章节提取：仅在文档超大（>100K字符）时启用降本策略
+  // 且提取的章节必须覆盖≥50%原文，否则保留全文以避免丢失关键信息
+  if (originalLength > 100000) {
+    const sections = extractKeySections(cleaned);
+    const sectionLen = sections.reduce((sum, s) => sum + s.length, 0);
+    if (sections.length > 0 && sectionLen > cleaned.length * 0.5) {
+      cleaned = sections.join('\n\n');
+      filteredCount++;
+      filteredReasons.push('大文档章节提取降本');
+    }
   }
-  
+
   // 压缩空白
   cleaned = cleaned
     .replace(/\n{3,}/g, '\n\n')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  
+
   return {
     cleaned,
     filteredCount,

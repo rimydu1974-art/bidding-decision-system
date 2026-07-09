@@ -12,6 +12,10 @@ export class AIService {
     this.fallbackProviders = (process.env.AI_FALLBACK_PROVIDERS || 'deepseek').split(',');
 
     this.registerProviders();
+
+    // 启动时记录注册的提供商和默认提供商
+    const registered = Array.from(this.providers.keys());
+    console.log(`[AIService] 启动完成, 默认: ${this.defaultProvider}, 已注册: [${registered.join(', ')}], 备用: [${this.fallbackProviders.join(', ')}]`);
   }
 
   private registerProviders() {
