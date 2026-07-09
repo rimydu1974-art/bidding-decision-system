@@ -15,6 +15,8 @@ const publicPaths = [
   '/api/payment/callback',
   '/api/debug',
   '/baidu_verify_codeva-DKjxJNANHK.html',
+  '/thinktank',
+  '/sitemap.xml',
 ];
 
 // 静态资源和特殊路径
