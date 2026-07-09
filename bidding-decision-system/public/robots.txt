@@ -7,4 +7,4 @@ Disallow: /login
 Disallow: /register
 Disallow: /user-center
 
-Sitemap: https://bidding-decision-system.vercel.app/sitemap.xml
+Sitemap: https://www.opencheck.com.cn/sitemap.xml

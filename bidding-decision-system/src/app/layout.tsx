@@ -15,7 +15,7 @@ const notoSansSC = Noto_Sans_SC({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://bidding-decision-system.vercel.app"),
+  metadataBase: new URL("https://www.opencheck.com.cn"),
   title: {
     default: "投标AI - 智能投标决策支持系统 | AI标书生成 | 风险评估",
     template: "%s | 投标AI - 智能投标决策支持系统",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "zh_CN",
-    url: "https://bidding-decision-system.vercel.app",
+    url: "https://www.opencheck.com.cn",
     siteName: "投标AI - 智能投标决策支持系统",
     title: "投标AI - 3分钟生成投标决策评估，提前发现废标风险",
     description:
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: "https://bidding-decision-system.vercel.app",
+    canonical: "https://www.opencheck.com.cn",
   },
   verification: {},
 };
@@ -91,7 +91,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   name: "投标AI - 智能投标决策支持系统",
-  url: "https://bidding-decision-system.vercel.app",
+  url: "https://www.opencheck.com.cn",
   description:
     "3分钟生成投标决策评估表，AI智能分析招标文件，提前发现废标风险，自动评分预测，AI标书生成。",
   applicationCategory: "BusinessApplication",
@@ -111,7 +111,7 @@ const jsonLd = {
     "企业知识库",
     "项目管理",
   ],
-  screenshot: "https://bidding-decision-system.vercel.app/screenshot.png",
+  screenshot: "https://www.opencheck.com.cn/screenshot.png",
   softwareVersion: "1.0",
   datePublished: "2026-06-20",
   dateModified: "2026-06-25",
@@ -133,7 +133,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="canonical" href="https://bidding-decision-system.vercel.app" />
+        <link rel="canonical" href="https://www.opencheck.com.cn" />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

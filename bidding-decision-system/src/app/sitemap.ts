@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://bidding-decision-system.vercel.app';
+  const baseUrl = 'https://www.opencheck.com.cn';
 
   return [
     {
