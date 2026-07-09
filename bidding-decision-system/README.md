@@ -1,154 +1,155 @@
-# Bid AI - 投标决策与标书生成平台
+# OpenCheck 智标系统 - AI投标决策平台
 
-AI驱动的投标决策与标书生成SaaS平台，帮助投标团队快速分析招标文件、评估风险、生成专业标书。
+> **基于AI的智能投标决策系统，帮助投标团队快速分析招标文件、识别废标风险、生成投标建议。**
 
-## 🏗️ 项目架构
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D2D2D?logo=prisma)](https://www.prisma.io/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-本项目采用 **Monorepo** 架构，分为开源核心和闭源企业版：
+## 项目简介
 
-```
-bidding-decision-system/
-├── packages/
-│   ├── core/                    # 🟢 开源 (MIT License)
-│   │   ├── src/
-│   │   │   ├── components/ui/   # UI组件
-│   │   │   ├── lib/parsers/     # 文档解析器
-│   │   │   ├── lib/utils/       # 工具函数
-│   │   │   └── types/           # 类型定义
-│   │   ├── LICENSE              # MIT许可证
-│   │   └── README.md
-│   │
-│   └── saas/                    # 🔴 闭源 (Proprietary)
-│       ├── src/
-│       │   ├── lib/ai/          # AI业务逻辑
-│       │   ├── lib/auth/        # 认证模块
-│       │   ├── lib/feishu/      # 飞书集成
-│       │   └── lib/payment/     # 支付模块
-│       ├── LICENSE              # 商业许可证
-│       └── README.md
-│
-├── src/                         # Next.js应用
-├── prisma/                      # 数据库Schema
-├── turbo.json                   # Turborepo配置
-└── package.json                 # 工作区配置
-```
+OpenCheck 智标系统是一个**AI驱动的投标决策平台**，专为招投标行业设计。通过AI技术，帮助投标团队在5分钟内完成招标文件分析，提取核心信息，识别废标风险，做出科学的Go/No-Go决策。
 
-## 🟢 开源模块 (@bid-ai/core)
+### 核心功能
 
-**MIT License** - 自由使用、修改、分发
-
-### 包含内容
-
-| 模块 | 说明 |
+| 功能 | 说明 |
 |------|------|
-| **UI组件** | GlassCard, ScoreGauge, RiskBadge |
-| **文档解析** | PDF/Word/Excel解析，表格提取 |
-| **工具函数** | 日期格式化、货币格式化、风险等级 |
-| **类型定义** | 完整的TypeScript类型 |
+| **AI速读** | 3分钟提取招标文件6大核心维度（预算、资质、时间、评分等） |
+| **智能风控** | 18+废标规则自动检测，覆盖签章、密封、资质等硬性要求 |
+| **老板决策** | 5分钟Go/No-Go判断，生成老板能看懂的决策报告 |
+| **6大核心指标** | 预算、资质、时间节点、评分规则、废标条款、风险等级 |
+| **PDF报告** | 一键生成专业分析报告，支持打印和分享 |
+| **知识库** | 积累企业投标经验，建立标准化检查流程 |
 
-### 安装使用
+### 适用场景
 
-```bash
-npm install @bid-ai/core
-```
+- 投标团队快速筛选项目
+- 老板决策是否投入资源
+- 风控人员审查标书合规性
+- 新手投标员学习行业规范
 
-```tsx
-import { GlassCard, ScoreGauge, parseFile } from '@bid-ai/core';
-```
+## 技术栈
 
-## 🔴 闭源模块 (@bid-ai/saas)
-
-**UNLICENSED** - 商业软件，禁止复制、分发、逆向工程
-
-### 包含内容
-
-| 模块 | 说明 |
+| 技术 | 用途 |
 |------|------|
-| **认证模块** | 用户注册、登录、JWT令牌、密码管理 |
-| **支付模块** | 支付处理、订单管理、退款处理 |
-| **AI业务逻辑** | 投标分析提示词、多厂商集成、响应解析 |
-| **飞书集成** | 业务流程自动化、通知路由、审批对接 |
-| **配额管理** | 使用追踪、速率限制、套餐管理 |
+| **Next.js 16** | 全栈React框架 |
+| **TypeScript** | 类型安全 |
+| **Prisma ORM** | 数据库访问 |
+| **Supabase** | PostgreSQL托管 |
+| **Tailwind CSS** | UI样式 |
+| **多AI模型** | DeepSeek / 通义千问 / 智谱 / 豆包 |
+| **Vercel** | 部署平台 |
 
-### 商业授权
-
-如需商业使用、部署或分发，请联系：
-
-- 邮箱：[your-email@example.com]
-- 网站：[your-website.com]
-
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
 - Node.js 18+
 - npm 8+
-- PostgreSQL (可选)
+- PostgreSQL（或使用Supabase）
 
-### 安装
+### 安装步骤
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/rimydu1974-art/bidding-decision-system.git
 cd bidding-decision-system
 
-# 安装依赖
+# 2. 安装依赖
 npm install
 
-# 配置环境变量
+# 3. 配置环境变量
 cp .env.local.example .env.local
 # 编辑 .env.local 填入你的配置
 
-# 启动开发服务器
+# 4. 初始化数据库
+npx prisma db push
+
+# 5. 启动开发服务器
 npm run dev
 ```
 
-### 环境变量
+### 环境变量配置
 
 ```env
 # 数据库
 DATABASE_URL="postgresql://..."
 
-# AI服务 (选择一个)
+# AI服务（选择一个）
 AI_PROVIDER=deepseek
 DEEPSEEK_API_KEY=your-key
 
-# 飞书 (可选)
-FEISHU_APP_ID=your-app-id
-FEISHU_APP_SECRET=your-secret
+# 或使用其他AI服务商
+# AI_PROVIDER=doubao
+# DOUBAO_API_KEY=your-key
 ```
 
-## 📦 Turborepo 命令
+## 项目结构
 
-```bash
-# 构建所有包
-npm run turbo:build
-
-# 代码检查
-npm run turbo:lint
-
-# 清理构建产物
-npm run clean
+```
+bidding-decision-system/
+├── src/
+│   ├── app/                    # Next.js页面
+│   │   ├── api/               # API路由
+│   │   ├── admin/             # 管理后台
+│   │   ├── thinktank/         # 招投标智库
+│   │   └── tools/             # 在线工具
+│   ├── components/            # React组件
+│   │   ├── ui/                # 基础UI组件
+│   │   ├── assessment/        # 评估展示组件
+│   │   └── risk/              # 风险展示组件
+│   ├── lib/                   # 工具库
+│   │   ├── ai/                # AI服务集成
+│   │   ├── rules/             # 规则引擎
+│   │   └── parsers/           # 文档解析器
+│   └── types/                 # TypeScript类型
+├── prisma/                    # 数据库Schema
+├── public/                    # 静态资源
+└── scripts/                   # 工具脚本
 ```
 
-## 🎨 设计系统
+## 在线体验
 
-基于暗色玻璃拟态设计：
+**https://www.opencheck.com.cn**
 
-- **主背景**: #0A0A12
-- **玻璃效果**: backdrop-blur + 半透明背景
-- **渐变色**: #7C3AED → #06B6D4
-- **组件**: GlassCard, ScoreGauge, RiskBadge
+## 核心亮点
 
-## 📄 文档
+### 1. AI多模型支持
 
-- [开源核心文档](packages/core/README.md)
-- [闭源企业版文档](packages/saas/README.md)
-- [API文档](http://localhost:3000/api-docs)
+支持9种AI服务商，自动切换，保证可用性：
 
-## 🤝 贡献
+- DeepSeek（推荐，性价比高）
+- 通义千问
+- 智谱AI
+- 豆包（字节跳动）
+- Kimi（月之暗面）
+- 零一万物
+- 讯飞星火
+- 腾讯混元
+- MiniMax
 
-欢迎贡献开源核心模块！请阅读：
+### 2. 废标风控引擎
+
+基于招投标法规和行业经验，构建了完整的废标风险检测规则库：
+
+- **硬性废标**：签章、密封、资质等致命问题
+- **软性风险**：条款模糊、时间紧张等潜在风险
+- **围标串标**：电子指纹、价格异常等行为检测
+
+### 3. 5D溯源
+
+每个分析结果都标注来源位置，方便核对原文：
+
+- 文件名
+- 页码
+- 段落位置
+- 原文引用
+- 置信度
+
+## 贡献指南
+
+欢迎贡献代码、报告问题或提出建议！
 
 1. Fork 项目
 2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
@@ -156,19 +157,21 @@ npm run clean
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 创建 Pull Request
 
-## 📝 许可证
+## 许可证
 
-- **开源核心**: [MIT License](packages/core/LICENSE)
-- **企业版**: [Proprietary](packages/saas/LICENSE)
+本项目采用 [MIT License](LICENSE) 开源许可证。
 
-## 🔗 相关链接
+## 相关链接
 
-- [GitHub Repository](https://github.com/rimydu1974-art/bidding-decision-system)
-- [Gitee Repository](https://gitee.com/rimydu/bidding-decision-system)
-- [Demo](https://your-demo-url.com)
+- **官网**：https://www.opencheck.com.cn
+- **GitHub**：https://github.com/rimydu1974-art/bidding-decision-system
+- **Gitee**：https://gitee.com/rimydu/bidding-decision-system
 
-## 📞 联系方式
+## 联系方式
 
-- 项目主页：[your-website.com]
-- 技术支持：[support@your-domain.com]
-- 商务合作：[business@your-domain.com]
+- 项目主页：https://www.opencheck.com.cn
+- Issues：https://github.com/rimydu1974-art/bidding-decision-system/issues
+
+## 致谢
+
+感谢所有为招投标行业数字化做出贡献的开发者和从业者。
