@@ -47,10 +47,9 @@ export interface PaymentNotification {
 export function getPaymentConfig(): PaymentConfig {
   const provider = (process.env.PAYMENT_PROVIDER as PaymentConfig['provider']) || 'mock';
 
-  // 生产环境禁止使用Mock支付
-  if (provider === 'mock' && process.env.NODE_ENV === 'production') {
-    throw new Error('生产环境不允许使用Mock支付，请配置PAYMENT_PROVIDER=wechat或alipay');
-  }
+  // 注意：手动支付模式（截图审核）不需要真正的支付API集成
+  // mock模式在生产环境是允许的，用于手动支付流程
+  // 只有自动支付回调需要真正的支付配置
 
   return {
     provider,
@@ -148,9 +147,11 @@ export async function verifyPaymentNotification(
 ): Promise<boolean> {
   const config = getPaymentConfig();
 
+  // Mock模式下拒绝所有支付回调（防止伪造）
+  // 手动支付流程不经过此回调，而是通过管理员审核
   if (config.provider === 'mock') {
-    console.warn('[Payment] Mock模式下跳过签名验证');
-    return true;
+    console.warn('[Payment] Mock模式下拒绝支付回调（手动支付流程不使用此接口）');
+    return false;
   }
 
   if (paymentMethod === 'wechat') {
