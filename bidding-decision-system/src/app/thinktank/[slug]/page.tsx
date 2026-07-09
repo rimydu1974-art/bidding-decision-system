@@ -14,6 +14,15 @@ const getArticle = cache(async (slug: string) => {
   return article;
 });
 
+const getRelatedArticles = cache(async (category: string, excludeSlug: string) => {
+  return prisma.thinkTankArticle.findMany({
+    where: { category, isPublished: true, slug: { not: excludeSlug } },
+    orderBy: { createdAt: 'desc' },
+    take: 3,
+    select: { id: true, title: true, slug: true, category: true, summary: true, views: true, createdAt: true },
+  });
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
@@ -25,5 +34,6 @@ export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const article = await getArticle(slug);
   if (!article) notFound();
-  return <div><h1>{article.title}</h1><p>{article.slug}</p></div>;
+  const related = await getRelatedArticles(article.category, article.slug);
+  return <div><h1>{article.title}</h1><p>{article.slug}</p><p>Related: {related.length}</p></div>;
 }
