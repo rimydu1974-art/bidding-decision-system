@@ -1,5 +1,4 @@
 import { MetadataRoute } from 'next';
-import prisma from '@/lib/db';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://www.opencheck.com.cn';
@@ -10,20 +9,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/thinktank`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
   ];
 
+  // Fetch articles via API instead of Prisma directly (avoids build-time DB connection issues)
   let articleRoutes: MetadataRoute.Sitemap = [];
   try {
-    const articles = await prisma.thinkTankArticle.findMany({
-      where: { isPublished: true },
-      select: { slug: true, updatedAt: true },
-      orderBy: { updatedAt: 'desc' },
-      take: 500,
+    const res = await fetch(`${baseUrl}/api/thinktank?pageSize=500`, {
+      next: { revalidate: 3600 },
     });
-    articleRoutes = articles.map((a) => ({
-      url: `${baseUrl}/thinktank/${a.slug}`,
-      lastModified: a.updatedAt,
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    }));
+    if (res.ok) {
+      const data = await res.json();
+      articleRoutes = (data.items || []).map((a: { slug: string; updatedAt: string }) => ({
+        url: `${baseUrl}/thinktank/${a.slug}`,
+        lastModified: new Date(a.updatedAt),
+        changeFrequency: 'monthly' as const,
+        priority: 0.7,
+      }));
+    }
   } catch (err) {
     console.error('sitemap: failed to fetch thinktank articles', err);
   }
