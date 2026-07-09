@@ -14,6 +14,7 @@ const publicPaths = [
   '/api/pricing',
   '/api/payment/callback',
   '/api/debug',
+  '/baidu_verify_codeva-DKjxJNANHK.html',
 ];
 
 // 静态资源和特殊路径
@@ -21,7 +22,6 @@ const staticPaths = [
   '/_next',
   '/favicon.ico',
   '/sitemap.ts',
-  '/baidu_verify_codeva-DKjxJNANHK.html',
 ];
 
 // 管理员路径前缀
