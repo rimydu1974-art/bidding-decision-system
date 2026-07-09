@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import prisma from '@/lib/db';
 import type { Metadata } from 'next';
 
@@ -8,11 +8,11 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getArticle(slug: string) {
+const getArticle = cache(async (slug: string) => {
   const article = await prisma.thinkTankArticle.findUnique({ where: { slug } });
   if (!article || !article.isPublished) return null;
   return article;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
