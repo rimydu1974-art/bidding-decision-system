@@ -21,6 +21,7 @@ const publicPaths = [
   '/tools',
   '/api/thinktank',
   '/googlec1fca0b727a07548.html',
+  '/googled19dd6751db24ff1.html',
   '/BingSiteAuth.xml',
   '/ByteDanceVerify.html',
 ];
