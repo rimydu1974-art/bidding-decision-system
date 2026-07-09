@@ -23,7 +23,6 @@ const publicPaths = [
   '/googlec1fca0b727a07548.html',
   '/BingSiteAuth.xml',
   '/ByteDanceVerify.html',
-  '/api/debug-article',
 ];
 
 // 静态资源和特殊路径
