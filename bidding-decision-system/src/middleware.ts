@@ -21,6 +21,7 @@ const staticPaths = [
   '/_next',
   '/favicon.ico',
   '/sitemap.ts',
+  '/baidu_verify_codeva-DKjxJNANHK.html',
 ];
 
 // 管理员路径前缀
