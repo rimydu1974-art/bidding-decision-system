@@ -92,3 +92,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '创建文章失败' }, { status: 500 });
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { slug, content, title, summary, category } = body;
+
+    if (!slug) {
+      return NextResponse.json({ error: 'slug required' }, { status: 400 });
+    }
+
+    const data: Record<string, unknown> = {};
+    if (content !== undefined) data.content = content;
+    if (title !== undefined) data.title = title;
+    if (summary !== undefined) data.summary = summary;
+    if (category !== undefined) data.category = category;
+
+    const article = await prisma.thinkTankArticle.update({
+      where: { slug },
+      data,
+    });
+
+    return NextResponse.json({ ok: true, slug: article.slug });
+  } catch (error) {
+    console.error('Update thinktank article error:', error);
+    return NextResponse.json({ error: '更新文章失败' }, { status: 500 });
+  }
+}
