@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { BookOpen, Clock, Eye, Tag, ArrowLeft, TrendingUp, Scale, AlertTriangle, Lightbulb, Cpu, Filter } from 'lucide-react';
@@ -25,16 +26,12 @@ export const dynamic = 'force-dynamic';
 interface Props {
   params: Promise<{ slug: string }>;
 }
-
-async function getArticle(slug: string) {
-  const article = await prisma.thinkTankArticle.findUnique({
-    where: { slug },
-  });
+const getArticle = cache(async (slug: string) => {
+  const article = await prisma.thinkTankArticle.findUnique({ where: { slug } });
   if (!article || !article.isPublished) return null;
-  // Increment views async (fire-and-forget)
   prisma.thinkTankArticle.update({ where: { slug }, data: { views: { increment: 1 } } }).catch(() => {});
   return article;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

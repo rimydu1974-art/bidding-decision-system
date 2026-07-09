@@ -31,10 +31,16 @@ export default async function ThinktankPage() {
   });
 
   const mappedArticles = articles.map((a) => ({
-    ...a,
+    id: a.id,
+    title: a.title,
+    slug: a.slug,
+    category: a.category,
+    summary: a.summary || '',
+    tags: (() => { try { return JSON.parse(a.tags); } catch { return []; } })(),
+    views: a.views,
+    coverImage: a.coverImage,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
-    tags: (() => { try { return JSON.parse(a.tags); } catch { return []; } })(),
   }));
 
   return (
