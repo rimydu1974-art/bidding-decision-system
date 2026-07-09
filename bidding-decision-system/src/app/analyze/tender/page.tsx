@@ -36,6 +36,7 @@ export default function TenderAnalyzePage() {
   const [error, setError] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [forceReanalyze, setForceReanalyze] = useState(false);
   const [progressStage, setProgressStage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -153,7 +154,7 @@ export default function TenderAnalyzePage() {
       formData.append('file', files[0]);
       formData.append('projectId', 'tender-upload');
 
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(`/api/analyze${forceReanalyze ? '?force=true' : ''}`, {
         method: 'POST',
         body: formData,
       });
@@ -289,6 +290,19 @@ export default function TenderAnalyzePage() {
               </div>
             )}
 
+
+            {/* 强制重新分析选项 */}
+            {files.length > 0 && (
+              <label className="flex items-center gap-2 mb-3 cursor-pointer text-sm text-[#6b7280] hover:text-[#a78bfa] transition-colors">
+                <input
+                  type="checkbox"
+                  checked={forceReanalyze}
+                  onChange={(e) => setForceReanalyze(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#2e2e42] bg-[#0f0f1a] text-[#7c3aed] focus:ring-[#7c3aed] focus:ring-offset-0 cursor-pointer"
+                />
+                强制重新分析（跳过缓存）
+              </label>
+            )}
             {/* Analyze Button / Progress Bar */}
             {analyzing ? (
               <div className="mt-6 space-y-3">

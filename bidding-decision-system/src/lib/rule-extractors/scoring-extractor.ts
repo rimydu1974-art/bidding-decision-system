@@ -36,8 +36,8 @@ export function extractScoringNumbers(text: string): ScoringNumber[] {
     /评标基准价[：:]*\s*[\d,.]+\s*(万|千万|百万)?元?/g,
     /基准价格[：:]*\s*[\d,.]+\s*(万|千万|百万)?元?/g,
   ];
-  const commercialPatterns = [/商务分[：:]*\s*\d+分/g, /商务部分[：:]*\s*\d+分/g];
-  const technicalPatterns = [/技术分[：:]*\s*\d+分/g, /技术部分[：:]*\s*\d+分/g];
+  const commercialPatterns = [/商务分[：:]*\s*\d+分/g, /商务部分[：:]*\s*\d+分/g, /商务评审\s*(\d+)/g, /商务评审[：:]*\s*(\d+)\s*分/g];
+  const technicalPatterns = [/技术分[：:]*\s*\d+分/g, /技术部分[：:]*\s*\d+分/g, /技术评审\s*(\d+)/g, /技术评审[：:]*\s*(\d+)\s*分/g];
 
   const total = extractNumber(text, '总分', totalScorePatterns);
   if (total) items.push(total);

@@ -43,7 +43,20 @@ async function getChineseFontBase64(): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const reqBody = await request.json();
-    const data = reqBody.assessment || reqBody;
+    let data = reqBody.assessment || reqBody;
+    // Merge aiResult sub-fields as fallback (financialInfo, timeRequirements, projectInfo etc. live only in aiResult)
+    const aiResult = typeof data.aiResult === 'string' ? JSON.parse(data.aiResult) : (data.aiResult || {});
+    data = {
+      ...data,
+      financialInfo: data.financialInfo || aiResult.financialInfo || {},
+      timeRequirements: data.timeRequirements || aiResult.timeRequirements || {},
+      projectInfo: data.projectInfo || aiResult.projectInfo || {},
+      qualificationRequirements: data.qualificationRequirements || data.qualificationReqs || aiResult.qualificationRequirements || [],
+      phoneQuestions: data.phoneQuestions || aiResult.phoneQuestions || [],
+      risks: data.risks || aiResult.risks || [],
+      checklist: data.checklist || aiResult.checklist || [],
+      _sources: data._sources || aiResult._sources || {},
+    };
     const isPaid = reqBody.isPaid || false;
 
     const jsPDF = (await import('jspdf')).default;
@@ -178,19 +191,19 @@ export async function POST(request: NextRequest) {
       return raw.length > 50 ? raw.substring(0, 50) + '...' : raw;
     };
 
-    // ==================== 构建6列表格数据 ====================
-    type TableRow = { no: string; category: string; fieldName: string; keyPoint: string; detail: string; source: string; isSeparator?: boolean; separatorColor?: [number, number, number]; isCritical?: boolean };
+    // ==================== 构建5列表格数据 ====================
+    type TableRow = { no: string; fieldName: string; keyPoint: string; detail: string; source: string; isSeparator?: boolean; separatorColor?: [number, number, number]; isCritical?: boolean };
 
     const rows: TableRow[] = [];
     let rowNum = 0;
 
     const addSeparator = (title: string, color: [number, number, number]) => {
-      rows.push({ no: '', category: '', fieldName: '', keyPoint: '', detail: '', source: '', isSeparator: true, separatorColor: color });
+      rows.push({ no: '', fieldName: '', keyPoint: title, detail: '', source: '', isSeparator: true, separatorColor: color });
     };
 
-    const addRow = (category: string, fieldName: string, keyPoint: string, detail: string = '', source: string = '', isCritical: boolean = false) => {
+    const addRow = (fieldName: string, keyPoint: string, detail: string = '', source: string = '', isCritical: boolean = false) => {
       rowNum++;
-      rows.push({ no: String(rowNum), category, fieldName, keyPoint, detail, source, isCritical });
+      rows.push({ no: String(rowNum), fieldName, keyPoint, detail, source, isCritical });
     };
 
     const getS = (section: any, key: string): string => {
@@ -206,32 +219,32 @@ export async function POST(request: NextRequest) {
     // ==================== 第1类：基本信息 ====================
     addSeparator('第1类：基本信息', colors.header1);
     const basicInfo = data.basicInfo || {};
-    addRow('基本信息', '项目名称', basicInfo.projectName || data.projectName || '-', '', getS(basicInfo, 'projectName'));
-    addRow('基本信息', '项目编号', basicInfo.projectCode || '-', '', getS(basicInfo, 'projectCode'));
-    addRow('基本信息', '招标企业', basicInfo.tenderer || '-', '', getS(basicInfo, 'tenderer'));
-    addRow('基本信息', '招标联系人', basicInfo.contactPerson || '-', basicInfo.contactPhone || '', getS(basicInfo, 'contactPerson'));
-    addRow('基本信息', '代理机构', basicInfo.agency || '-', '', getS(basicInfo, 'agency'));
-    addRow('基本信息', '信息来源', basicInfo.informationSource || '-', '', getS(basicInfo, 'informationSource'));
-    addRow('基本信息', 'CA需求', basicInfo.caRequirement || '-', '', getS(basicInfo, 'caRequirement'));
-    addRow('基本信息', '开标方式', basicInfo.bidOpeningMethod || '-', '', getS(basicInfo, 'bidOpeningMethod'));
-    addRow('基本信息', '开标地点', basicInfo.bidOpeningLocation || '-', '', getS(basicInfo, 'bidOpeningLocation'));
-    addRow('基本信息', '报名方式', basicInfo.registrationMethod || '-', '', getS(basicInfo, 'registrationMethod'));
-    addRow('基本信息', '项目地点', basicInfo.location || '-', '', getS(basicInfo, 'location'));
+    addRow('项目名称', basicInfo.projectName || data.projectName || '-', '', getS(basicInfo, 'projectName'));
+    addRow('项目编号', basicInfo.projectCode || '-', '', getS(basicInfo, 'projectCode'));
+    addRow('招标企业', basicInfo.tenderer || '-', '', getS(basicInfo, 'tenderer'));
+    addRow('招标联系人', basicInfo.contactPerson || '-', basicInfo.contactPhone || '', getS(basicInfo, 'contactPerson'));
+    addRow('代理机构', basicInfo.agency || '-', '', getS(basicInfo, 'agency'));
+    addRow('信息来源', basicInfo.informationSource || '-', '', getS(basicInfo, 'informationSource'));
+    addRow('CA需求', basicInfo.caRequirement || '-', '', getS(basicInfo, 'caRequirement'));
+    addRow('开标方式', basicInfo.bidOpeningMethod || '-', '', getS(basicInfo, 'bidOpeningMethod'));
+    addRow('开标地点', basicInfo.bidOpeningLocation || '-', '', getS(basicInfo, 'bidOpeningLocation'));
+    addRow('报名方式', basicInfo.registrationMethod || '-', '', getS(basicInfo, 'registrationMethod'));
+    addRow('项目地点', basicInfo.location || '-', '', getS(basicInfo, 'location'));
 
     // ==================== 第2类：财务信息 ====================
     addSeparator('第2类：财务信息', colors.header2);
     const financialInfo = data.financialInfo || {};
-    addRow('财务信息', '资金来源', financialInfo.fundingSource || '-', '', getS(financialInfo, 'fundingSource'));
-    addRow('财务信息', '预算金额', financialInfo.budget ? `${Number(financialInfo.budget).toLocaleString()}元` : '-', '', getS(financialInfo, 'budget'), true);
+    addRow('资金来源', financialInfo.fundingSource || '-', '', getS(financialInfo, 'fundingSource'));
+    addRow('预算金额', financialInfo.budget ? `${Number(financialInfo.budget).toLocaleString()}元` : '-', '', getS(financialInfo, 'budget'), true);
     if (financialInfo.maxPrice) {
-      addRow('财务信息', '最高限价', `${Number(financialInfo.maxPrice).toLocaleString()}元`, '超出无效', getS(financialInfo, 'maxPrice'), true);
+      addRow('最高限价', `${Number(financialInfo.maxPrice).toLocaleString()}元`, '超出无效', getS(financialInfo, 'maxPrice'), true);
     }
-    addRow('财务信息', '付款方式', financialInfo.paymentMethod || '-', '', getS(financialInfo, 'paymentMethod'));
-    addRow('财务信息', '标书费', financialInfo.bidDocumentFee ? `${financialInfo.bidDocumentFee}元` : '0元（免费）', '', getS(financialInfo, 'bidDocumentFee'));
-    addRow('财务信息', '投标保证金', financialInfo.bidBond || '不收取', '', getS(financialInfo, 'bidBond'));
-    addRow('财务信息', '履约保证金', financialInfo.performanceBond || '-', '', getS(financialInfo, 'performanceBond'));
-    addRow('财务信息', '质量保证金', financialInfo.qualityBond || '-', '', getS(financialInfo, 'qualityBond'));
-    addRow('财务信息', '代理费', financialInfo.agencyFee || '无', '', getS(financialInfo, 'agencyFee'));
+    addRow('付款方式', financialInfo.paymentMethod || '-', '', getS(financialInfo, 'paymentMethod'));
+    addRow('标书费', financialInfo.bidDocumentFee ? `${financialInfo.bidDocumentFee}元` : '0元（免费）', '', getS(financialInfo, 'bidDocumentFee'));
+    addRow('投标保证金', financialInfo.bidBond || '不收取', '', getS(financialInfo, 'bidBond'));
+    addRow('履约保证金', financialInfo.performanceBond || '-', '', getS(financialInfo, 'performanceBond'));
+    addRow('质量保证金', financialInfo.qualityBond || '-', '', getS(financialInfo, 'qualityBond'));
+    addRow('代理费', financialInfo.agencyFee || '无', '', getS(financialInfo, 'agencyFee'));
 
     // ==================== 第3类：资质要求 ====================
     addSeparator('第3类：资质要求', colors.header3);
@@ -243,15 +256,15 @@ export async function POST(request: NextRequest) {
         if (src[key]) return formatSource(src[key]);
         return '';
       };
-      if (q.jointBid && q.jointBid !== '招标文件未提及') addRow('资质要求', '联合体投标', q.jointBid, q.isSubstantial ? '实质性要求' : '', qSrc('jointBid'));
-      if (q.subcontracting && q.subcontracting !== '招标文件未提及') addRow('资质要求', '分包转包', q.subcontracting, '', qSrc('subcontracting'));
-      if (q.specialQualification && q.specialQualification !== '招标文件未提及') addRow('资质要求', '特别资质', q.specialQualification, '', qSrc('specialQualification'), true);
-      if (q.specialPersonnelReq && q.specialPersonnelReq !== '招标文件未提及') addRow('资质要求', '特别人员要求', q.specialPersonnelReq, '', qSrc('specialPersonnelReq'));
-      if (q.specialNotes && q.specialNotes !== '招标文件未提及') addRow('资质要求', '特别说明', q.specialNotes, '', qSrc('specialNotes'));
-      if (q.policyBenefits && q.policyBenefits !== '招标文件未提及') addRow('资质要求', '政策优惠', q.policyBenefits, '', qSrc('policyBenefits'));
-      if (q.qualificationReview && q.qualificationReview !== '招标文件未提及') addRow('资质要求', '资格性审查', q.qualificationReview, '一票否决', qSrc('qualificationReview'), true);
-      if (q.complianceReview && q.complianceReview !== '招标文件未提及') addRow('资质要求', '符合性审查', q.complianceReview, '一票否决', qSrc('complianceReview'), true);
-      if (q.creditRequirements && q.creditRequirements !== '招标文件未提及') addRow('资质要求', '信用要求', q.creditRequirements, '', qSrc('creditRequirements'));
+      if (q.jointBid && q.jointBid !== '招标文件未提及') addRow('联合体投标', q.jointBid, q.isSubstantial ? '实质性要求' : '', qSrc('jointBid'));
+      if (q.subcontracting && q.subcontracting !== '招标文件未提及') addRow('分包转包', q.subcontracting, '', qSrc('subcontracting'));
+      if (q.specialQualification && q.specialQualification !== '招标文件未提及') addRow('特别资质', q.specialQualification, '', qSrc('specialQualification'), true);
+      if (q.specialPersonnelReq && q.specialPersonnelReq !== '招标文件未提及') addRow('特别人员要求', q.specialPersonnelReq, '', qSrc('specialPersonnelReq'));
+      if (q.specialNotes && q.specialNotes !== '招标文件未提及') addRow('特别说明', q.specialNotes, '', qSrc('specialNotes'));
+      if (q.policyBenefits && q.policyBenefits !== '招标文件未提及') addRow('政策优惠', q.policyBenefits, '', qSrc('policyBenefits'));
+      if (q.qualificationReview && q.qualificationReview !== '招标文件未提及') addRow('资格性审查', q.qualificationReview, '一票否决', qSrc('qualificationReview'), true);
+      if (q.complianceReview && q.complianceReview !== '招标文件未提及') addRow('符合性审查', q.complianceReview, '一票否决', qSrc('complianceReview'), true);
+      if (q.creditRequirements && q.creditRequirements !== '招标文件未提及') addRow('信用要求', q.creditRequirements, '', qSrc('creditRequirements'));
     });
 
     // ==================== 第4类：评分规则 ====================
@@ -263,34 +276,21 @@ export async function POST(request: NextRequest) {
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    addRow('评分规则', '总分', `${scoringRules.totalScore || 100}分`, '', scSrc('totalScore'));
-    addRow('评分规则', '客观分', `${scoringRules.objectiveScore || 0}分`, '', scSrc('objectiveScore'));
-    addRow('评分规则', '主观分', `${scoringRules.subjectiveScore || 0}分`, '', scSrc('subjectiveScore'));
-    addRow('评分规则', '价格分', `${scoringRules.priceScore || 0}分`, scoringRules.priceScoreDetail || '低价优先法', scSrc('priceScore'));
-    addRow('评分规则', '商务分', `${scoringRules.commercialScore || 0}分`, scoringRules.commercialScoreDetail || '', scSrc('commercialScore'));
-    addRow('评分规则', '技术分', `${scoringRules.technicalScore || 0}分`, scoringRules.technicalScoreDetail || '', scSrc('technicalScore'));
-    addRow('评分规则', '中标方式', scoringRules.winningMethod || '-', '', scSrc('winningMethod'));
-    addRow('评分规则', '评标方式', scoringRules.evaluationMethod || '-', '', scSrc('evaluationMethod'));
-    if (scoringRules.voidBidExplanation) addRow('评分规则', '废标说明', scoringRules.voidBidExplanation, '重点！', scSrc('voidBidExplanation'), true);
-    if (scoringRules.specialScoringRequirements) addRow('评分规则', '评分特别要求', scoringRules.specialScoringRequirements, '', scSrc('specialScoringRequirements'));
+    addRow('总分', `${scoringRules.totalScore || 100}分`, '', scSrc('totalScore'));
+    addRow('客观分', `${scoringRules.objectiveScore || 0}分`, '', scSrc('objectiveScore'));
+    addRow('主观分', `${scoringRules.subjectiveScore || 0}分`, '', scSrc('subjectiveScore'));
+    addRow('价格分', `${scoringRules.priceScore || 0}分`, scoringRules.priceScoreDetail || '低价优先法', scSrc('priceScore'));
+    addRow('商务分', `${scoringRules.commercialScore || 0}分`, scoringRules.commercialScoreDetail || '', scSrc('commercialScore'));
+    addRow('技术分', `${scoringRules.technicalScore || 0}分`, scoringRules.technicalScoreDetail || '', scSrc('technicalScore'));
+    addRow('中标方式', scoringRules.winningMethod || '-', '', scSrc('winningMethod'));
+    addRow('评标方式', scoringRules.evaluationMethod || '-', '', scSrc('evaluationMethod'));
+    if (scoringRules.voidBidExplanation) addRow('废标说明', scoringRules.voidBidExplanation, '重点！', scSrc('voidBidExplanation'), true);
+    if (scoringRules.specialScoringRequirements) addRow('评分特别要求', scoringRules.specialScoringRequirements, '', scSrc('specialScoringRequirements'));
 
     const companyCerts = scoringRules.requiredCompanyCertificates || [];
-    if (companyCerts.length > 0 && companyCerts[0] !== '招标文件未提及') addRow('评分规则', '要求企业证书', Array.isArray(companyCerts) ? companyCerts.join('、') : String(companyCerts), '', scSrc('requiredCompanyCertificates'));
+    if (companyCerts.length > 0 && companyCerts[0] !== '招标文件未提及') addRow('要求企业证书', Array.isArray(companyCerts) ? companyCerts.join('、') : String(companyCerts), '', scSrc('requiredCompanyCertificates'));
     const personnelCerts = scoringRules.requiredPersonnelCertificates || [];
-    if (personnelCerts.length > 0 && personnelCerts[0] !== '招标文件未提及') addRow('评分规则', '要求人员证书', Array.isArray(personnelCerts) ? personnelCerts.join('、') : String(personnelCerts), '', scSrc('requiredPersonnelCertificates'));
-
-    // 评分项明细 - 每项单独一行
-    const scoringItems = scoringRules.items || [];
-    if (scoringItems.length > 0) {
-      scoringItems.forEach((item: Record<string, any>) => {
-        const category = item.category || '评分项';
-        const name = item.name || '-';
-        const maxScore = item.maxScore || 0;
-        const desc = item.description || '';
-        const calc = item.calculationMethod || '';
-        addRow('评分规则', category, `${name}（${maxScore}分）`, desc || calc, scSrc('items'));
-      });
-    }
+    if (personnelCerts.length > 0 && personnelCerts[0] !== '招标文件未提及') addRow('要求人员证书', Array.isArray(personnelCerts) ? personnelCerts.join('、') : String(personnelCerts), '', scSrc('requiredPersonnelCertificates'));
 
     // ==================== 第5类：时间要求 ====================
     addSeparator('第5类：时间要求', colors.header5);
@@ -301,11 +301,11 @@ export async function POST(request: NextRequest) {
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    addRow('时间要求', '获取招标文件截止', timeReqs.documentAcquisitionDeadline || '-', '', tSrc('documentAcquisitionDeadline'));
-    addRow('时间要求', '标前提问截止', timeReqs.preBidQuestionDeadline || '-', '', tSrc('preBidQuestionDeadline'));
-    addRow('时间要求', '开标时间', timeReqs.bidOpeningTime || '-', '', tSrc('bidOpeningTime'), true);
-    addRow('时间要求', '中标交货时间', timeReqs.winningDeliveryTime || '-', '', tSrc('winningDeliveryTime'));
-    addRow('时间要求', '合同履约期限', timeReqs.contractPerformancePeriod || '-', '', tSrc('contractPerformancePeriod'));
+    addRow('获取招标文件截止', timeReqs.documentAcquisitionDeadline || '-', '', tSrc('documentAcquisitionDeadline'));
+    addRow('标前提问截止', timeReqs.preBidQuestionDeadline || '-', '', tSrc('preBidQuestionDeadline'));
+    addRow('开标时间', timeReqs.bidOpeningTime || '-', '', tSrc('bidOpeningTime'), true);
+    addRow('中标交货时间', timeReqs.winningDeliveryTime || '-', '', tSrc('winningDeliveryTime'));
+    addRow('合同履约期限', timeReqs.contractPerformancePeriod || '-', '', tSrc('contractPerformancePeriod'));
 
     // ==================== 第6类：项目信息 ====================
     addSeparator('第6类：项目信息', colors.header6);
@@ -316,26 +316,47 @@ export async function POST(request: NextRequest) {
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    if (projectInfo.substantialRequirements) addRow('项目信息', '▲★※满足要求', projectInfo.substantialRequirements, '重点！必须全部响应', pSrc('substantialRequirements'), true);
-    if (projectInfo.deviationResult) addRow('项目信息', '偏离▲★※结果', projectInfo.deviationResult, '一项不满足即废标', pSrc('deviationResult'), true);
-    if (projectInfo.voidBidConditions) addRow('项目信息', '废标/无效报价', projectInfo.voidBidConditions, '重点！', '', true);
-    if (projectInfo.qualificationReviewItems) addRow('项目信息', '资格性审查项', projectInfo.qualificationReviewItems, '一票否决', '', true);
-    if (projectInfo.complianceReviewItems) addRow('项目信息', '符合性审查项', projectInfo.complianceReviewItems, '一票否决', '', true);
-    if (projectInfo.drawingsProvided) addRow('项目信息', '图纸提供', projectInfo.drawingsProvided, '', pSrc('drawingsProvided'));
-    addRow('项目信息', '现场踏勘', projectInfo.siteSurveyRequired || '-', '', pSrc('siteSurveyRequired'));
-    if (projectInfo.controlPoints) addRow('项目信息', '控标点', projectInfo.controlPoints, '', pSrc('controlPoints'));
-    if (projectInfo.businessRequirements) addRow('项目信息', '商务需求', projectInfo.businessRequirements, '', pSrc('businessRequirements'));
-    if (projectInfo.technicalRequirements) addRow('项目信息', '技术需求', projectInfo.technicalRequirements, '', pSrc('technicalRequirements'));
-    if (projectInfo.coreServiceRequirements) addRow('项目信息', '核心服务需求', projectInfo.coreServiceRequirements, '', pSrc('coreServiceRequirements'));
-    if (projectInfo.projectOutcomeRequirements) addRow('项目信息', '项目成果要求', projectInfo.projectOutcomeRequirements, '', pSrc('projectOutcomeRequirements'));
-    if (projectInfo.finalDelivery) addRow('项目信息', '最终交付', projectInfo.finalDelivery, '', pSrc('finalDelivery'));
-    if (projectInfo.specialProjectPoints) addRow('项目信息', '项目特别提到点', projectInfo.specialProjectPoints, '', pSrc('specialProjectPoints'));
-    addRow('项目信息', '正本副本', projectInfo.originalCopies || '-', '', pSrc('originalCopies'));
-    addRow('项目信息', '密封要求', projectInfo.sealingRequirements || '-', '', pSrc('sealingRequirements'));
-    addRow('项目信息', '包装要求', projectInfo.packagingRequirements || '-', '', pSrc('packagingRequirements'));
-    addRow('项目信息', '盖章要求', projectInfo.stampingRequirements || '-', '', pSrc('stampingRequirements'));
-    addRow('项目信息', '签字要求', projectInfo.signatureRequirements || '-', '', pSrc('signatureRequirements'));
-    addRow('项目信息', '验收要求', projectInfo.acceptanceRequirements || '-', '', pSrc('acceptanceRequirements'));
+    if (projectInfo.substantialRequirements) addRow('▲★※满足要求', projectInfo.substantialRequirements, '重点！必须全部响应', pSrc('substantialRequirements'), true);
+    if (projectInfo.deviationResult) addRow('偏离▲★※结果', projectInfo.deviationResult, '一项不满足即废标', pSrc('deviationResult'), true);
+    // Post-process voidBidConditions: extract only lines containing void-bid keywords, format as ①②③
+    const formatVoidBid = (text: string): string => {
+      if (!text || text === '-') return text;
+      // Split by clause boundaries: after 。|；|\n, before 九、十、※十一、1.、etc.
+      const clauses = text
+        .split(/(?<=[。；\n])|(?=[一二三四五六七八九十]+[、．.]|※[一二三四五六七八九十]+[、．.]|\d+[、．.])/)
+        .map(c => c.replace(/\n/g, '').trim())
+        .filter(c => c);
+      const kw = /废标|无效报价|视为无效|投标无效|按无效处理|否决投标|不予受理|拒收|取消资格|作废|不得参加|无效。/u;
+      const matches = clauses.filter(c => kw.test(c));
+      // Deduplicate by first 50 chars
+      const seen = new Set<string>();
+      const unique = matches.filter(c => {
+        const key = c.substring(0, 50);
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      if (unique.length === 0) return text.substring(0, 200).replace(/\n/g, ' ');
+      const CIRCLE = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+      return unique.map((s, i) => (CIRCLE[i] || `${i+1}.`) + s).join('\n');
+    };
+    if (projectInfo.voidBidConditions) addRow('废标/无效报价', formatVoidBid(projectInfo.voidBidConditions), '重点！', '', true);
+    if (projectInfo.qualificationReviewItems) addRow('资格性审查项', projectInfo.qualificationReviewItems, '一票否决', '', true);
+    if (projectInfo.complianceReviewItems) addRow('符合性审查项', projectInfo.complianceReviewItems, '一票否决', '', true);
+    if (projectInfo.drawingsProvided) addRow('图纸提供', projectInfo.drawingsProvided, '', pSrc('drawingsProvided'));
+    addRow('现场踏勘', projectInfo.siteSurveyRequired || '-', '', pSrc('siteSurveyRequired'));
+    if (projectInfo.controlPoints) addRow('控标点', projectInfo.controlPoints, '', pSrc('controlPoints'));
+    if (projectInfo.businessRequirements) addRow('商务需求', projectInfo.businessRequirements, '', pSrc('businessRequirements'));
+    if (projectInfo.technicalRequirements) addRow('技术需求', projectInfo.technicalRequirements, '', pSrc('technicalRequirements'));
+    if (projectInfo.coreServiceRequirements) addRow('核心服务需求', projectInfo.coreServiceRequirements, '', pSrc('coreServiceRequirements'));
+    if (projectInfo.projectOutcomeRequirements) addRow('项目成果要求', projectInfo.projectOutcomeRequirements, '', pSrc('projectOutcomeRequirements'));
+    if (projectInfo.finalDelivery) addRow('最终交付', projectInfo.finalDelivery, '', pSrc('finalDelivery'));
+    if (projectInfo.specialProjectPoints) addRow('项目特别提到点', projectInfo.specialProjectPoints, '', pSrc('specialProjectPoints'));
+    addRow('正本副本', projectInfo.originalCopies || '-', '', pSrc('originalCopies'));
+    addRow('密封要求', projectInfo.sealingRequirements || '-', '', pSrc('sealingRequirements'));
+    addRow('包装要求', projectInfo.packagingRequirements || '-', '', pSrc('packagingRequirements'));
+    addRow('盖章要求', projectInfo.stampingRequirements || '-', '', pSrc('stampingRequirements'));
+    addRow('签字要求', projectInfo.signatureRequirements || '-', '', pSrc('signatureRequirements'));
+    addRow('验收要求', projectInfo.acceptanceRequirements || '-', '', pSrc('acceptanceRequirements'));
 
     // ==================== 第7类：老板总结 ====================
     addSeparator('第7类：老板总结', colors.brandPurple);
@@ -347,7 +368,7 @@ export async function POST(request: NextRequest) {
       if (risks.length > 0) {
         risks.forEach((risk: Record<string, any>) => {
           const levelMap: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' };
-          addRow('老板总结', `风险：${levelMap[risk.level] || '中'}`, risk.title || '风险项', risk.description || '', risk.suggestion || '', risk.level === 'critical');
+          addRow(`风险：${levelMap[risk.level] || '中'}`, risk.title || '风险项', risk.description || '', risk.suggestion || '', risk.level === 'critical');
         });
       }
       if (checklistCount > 0) {
@@ -359,21 +380,21 @@ export async function POST(request: NextRequest) {
           groups[cat].push(`${c.item}${c.required ? '(必)' : ''}${c.scoreWeight ? `[${c.scoreWeight}分]` : ''}`);
         });
         Object.entries(groups).forEach(([cat, items]) => {
-          addRow('老板总结', `准备分工：${cat}`, items.join('、'), '', '');
+          addRow(`准备分工：${cat}`, items.join('、'), '', '');
         });
       }
       if (phoneQuestions.length > 0) {
         phoneQuestions.forEach((q: Record<string, any>, idx: number) => {
-          addRow('老板总结', `电话问题${idx + 1}`, q.question || '-', q.reason || '', '');
+          addRow(`电话问题${idx + 1}`, q.question || '-', q.reason || '', '');
         });
       }
       const recLabel: Record<string, string> = { bid: '建议投标', 'no-bid': '不建议投标', caution: '谨慎投标' };
-      addRow('老板总结', '投标建议', recLabel[data.recommendation || 'caution'] || '谨慎投标', (data.reasons || []).join('；'), '', true);
+      addRow('投标建议', recLabel[data.recommendation || 'caution'] || '谨慎投标', (data.reasons || []).join('；'), '', true);
     } else {
-      addRow('老板总结', '风险清单', `${risks.length}条`, '付费后查看详细内容', '');
-      addRow('老板总结', '准备分工', `${checklistCount}条`, '付费后查看详细内容', '');
-      addRow('老板总结', '电话问题', `${phoneQuestions.length}条`, '付费后查看详细内容', '');
-      addRow('老板总结', '投标建议', '付费后查看', '', '');
+      addRow('风险清单', `${risks.length}条`, '付费后查看详细内容', '');
+      addRow('准备分工', `${checklistCount}条`, '付费后查看详细内容', '');
+      addRow('电话问题', `${phoneQuestions.length}条`, '付费后查看详细内容', '');
+      addRow('投标建议', '付费后查看', '', '');
     }
 
     // ==================== 渲染 autoTable ====================
@@ -398,41 +419,31 @@ export async function POST(request: NextRequest) {
       return formatted;
     };
 
+    // 添加①②③编号到多条目内容
+    const CIRCLE_NUMBERS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
+                            '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+    function addCircleNumbers(text: string): string {
+      if (!text || text === '-') return text;
+      // 已有圆圈编号 → 跳过
+      if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
+      // 分割并编号
+      const parts = text.split(/[；;]\s*|\n\s*/).filter(p => p.trim().length > 0);
+      if (parts.length <= 1) return text;
+      return parts.map((p, i) => (CIRCLE_NUMBERS[i] || `${i+1}.`) + p).join(' ');
+    }
+
     // 对所有行的keyPoint和detail列应用分项格式化
     rows.forEach(row => {
       if (!row.isSeparator) {
-        row.keyPoint = formatNumberedItems(row.keyPoint);
+        row.keyPoint = formatNumberedItems(addCircleNumbers(row.keyPoint));
         row.detail = formatNumberedItems(row.detail);
       }
     });
 
-    // 合并类别列：相同category只显示第一次出现
-    const categoryFirstSeen: Record<string, number> = {};
-    rows.forEach((r, idx) => {
-      if (r.isSeparator || !r.category) return;
-      if (categoryFirstSeen[r.category] === undefined) {
-        categoryFirstSeen[r.category] = idx;
-      }
-    });
-    // 标记需要隐藏category的行
-    const categoryHideSet = new Set<number>();
-    const categoryGroups: Record<string, number[]> = {};
-    rows.forEach((r, idx) => {
-      if (r.isSeparator || !r.category) return;
-      if (!categoryGroups[r.category]) categoryGroups[r.category] = [];
-      categoryGroups[r.category].push(idx);
-    });
-    Object.values(categoryGroups).forEach(indices => {
-      for (let i = 1; i < indices.length; i++) {
-        categoryHideSet.add(indices[i]);
-      }
-    });
-
-    const head = [['编号', '类别', '字段名称', '项目数据要点', '明细', '来源定位']];
-    const body = rows.map((r, idx) => {
-      if (r.isSeparator) return [''];
-      const cat = categoryHideSet.has(idx) ? '' : r.category;
-      return [r.no, cat, r.fieldName, r.keyPoint, r.detail, r.source];
+    const head = [['编号', '字段名称', '项目数据要点', '备注', '来源定位']];
+    const body = rows.map((r) => {
+      if (r.isSeparator) return [{ content: '' }, { content: r.keyPoint || '', colSpan: 4, styles: { fillColor: r.separatorColor || colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 10 } }, {}, {}, {}];
+      return [r.no, r.fieldName, r.keyPoint, r.detail, r.source];
     });
 
     (autoTable as any)(doc, {
@@ -440,14 +451,12 @@ export async function POST(request: NextRequest) {
       head,
       body: body as any,
       margin: { left: margin, right: margin },
-      tableWidth: 'auto',
       columnStyles: {
-        0: { cellWidth: 12 },
-        1: { cellWidth: 24 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 90 },
-        4: { cellWidth: 72 },
-        5: { cellWidth: 45 },
+        0: { cellWidth: 9 },    // 编号
+        1: { cellWidth: 24 },   // 字段名称
+        2: { cellWidth: 75 },   // 项目数据要点
+        3: { cellWidth: 68 },   // 备注
+        4: { cellWidth: 34 },   // 来源定位
       },
       styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', font: 'SimHei', lineHeight: 1.4 } as any,
       headStyles: { fillColor: colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 8 } as any,
@@ -457,16 +466,11 @@ export async function POST(request: NextRequest) {
         if (!row) return;
 
         if (row.isSeparator && row.separatorColor) {
-          for (let i = 0; i < 6; i++) {
+          for (let i = 0; i < 5; i++) {
             data.cell.styles.fillColor = row.separatorColor;
             data.cell.styles.textColor = colors.white;
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.fontSize = 10;
-          }
-          if (data.column.index === 0) {
-            data.cell.raw = '';
-          } else if (data.column.index === 1) {
-            data.cell.raw = row.keyPoint || '';
           }
         }
 
@@ -474,14 +478,12 @@ export async function POST(request: NextRequest) {
           if (data.column.index >= 0) {
             data.cell.styles.fillColor = [255, 245, 238];
           }
-          if (data.column.index === 3) {
+          if (data.column.index === 2) {
             data.cell.styles.fontStyle = 'bold';
           }
         }
       },
     });
-
-    // 页脚
     const finalY = (doc as any).lastAutoTable.finalY || 15;
     doc.setFontSize(8);
     doc.setTextColor(139, 155, 180);

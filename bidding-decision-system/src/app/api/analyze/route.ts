@@ -129,53 +129,59 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Analyze] 开始处理文件: ${file.name}, 大小: ${file.size} bytes`);
 
-    // 文件Hash去重检查
-    const fileHash = await calculateFileHash(file);
-    const existingFile = await checkFileExists(fileHash);
-    if (existingFile.exists && existingFile.assessmentId) {
-      console.log(`[Analyze] 文件已存在, Hash: ${fileHash}`);
-      const cachedAssessment = await prisma.assessment.findUnique({
-        where: { id: existingFile.assessmentId },
-      });
-      if (cachedAssessment) {
-        // 如果缓存的assessment属于当前用户，直接返回
-        if (cachedAssessment.userId === session.user.id) {
-          console.log(`[Analyze] 返回缓存结果 (同一用户)`);
+    // 文件Hash去重检查（force=true时跳过缓存）
+    const forceReanalyze = request.nextUrl.searchParams.get('force') === 'true';
+    let fileHash = '';
+    if (forceReanalyze) {
+      console.log(`[Analyze] 强制重新分析模式，跳过缓存检查`);
+    } else {
+      fileHash = await calculateFileHash(file);
+      const existingFile = await checkFileExists(fileHash);
+      if (existingFile.exists && existingFile.assessmentId) {
+        console.log(`[Analyze] 文件已存在, Hash: ${fileHash}`);
+        const cachedAssessment = await prisma.assessment.findUnique({
+          where: { id: existingFile.assessmentId },
+        });
+        if (cachedAssessment) {
+          // 如果缓存的assessment属于当前用户，直接返回
+          if (cachedAssessment.userId === session.user.id) {
+            console.log(`[Analyze] 返回缓存结果 (同一用户)`);
+            return NextResponse.json({ 
+              assessment: cachedAssessment,
+              cached: true,
+              message: '该文件已分析过，返回缓存结果'
+            });
+          }
+          // 如果属于其他用户，为当前用户复制一份
+          console.log(`[Analyze] 缓存属于其他用户，为当前用户创建副本`);
+          const clonedAssessment = await prisma.assessment.create({
+            data: {
+              userId: session.user.id,
+              projectName: cachedAssessment.projectName,
+              projectCode: cachedAssessment.projectCode,
+              budget: cachedAssessment.budget,
+              riskLevel: cachedAssessment.riskLevel,
+              recommendation: cachedAssessment.recommendation,
+              fileName: file.name,
+              aiResult: cachedAssessment.aiResult,
+              basicInfo: cachedAssessment.basicInfo,
+              risks: cachedAssessment.risks,
+              tasks: cachedAssessment.tasks,
+              scoringRules: cachedAssessment.scoringRules,
+              qualificationReqs: cachedAssessment.qualificationReqs,
+              technicalResponse: cachedAssessment.technicalResponse,
+              riskAggregation: cachedAssessment.riskAggregation,
+              bidDeadline: cachedAssessment.bidDeadline,
+              bidOpeningTime: cachedAssessment.bidOpeningTime,
+              queryDeadline: cachedAssessment.queryDeadline,
+            },
+          });
           return NextResponse.json({ 
-            assessment: cachedAssessment,
+            assessment: clonedAssessment,
             cached: true,
             message: '该文件已分析过，返回缓存结果'
           });
         }
-        // 如果属于其他用户，为当前用户复制一份
-        console.log(`[Analyze] 缓存属于其他用户，为当前用户创建副本`);
-        const clonedAssessment = await prisma.assessment.create({
-          data: {
-            userId: session.user.id,
-            projectName: cachedAssessment.projectName,
-            projectCode: cachedAssessment.projectCode,
-            budget: cachedAssessment.budget,
-            riskLevel: cachedAssessment.riskLevel,
-            recommendation: cachedAssessment.recommendation,
-            fileName: file.name,
-            aiResult: cachedAssessment.aiResult,
-            basicInfo: cachedAssessment.basicInfo,
-            risks: cachedAssessment.risks,
-            tasks: cachedAssessment.tasks,
-            scoringRules: cachedAssessment.scoringRules,
-            qualificationReqs: cachedAssessment.qualificationReqs,
-            technicalResponse: cachedAssessment.technicalResponse,
-            riskAggregation: cachedAssessment.riskAggregation,
-            bidDeadline: cachedAssessment.bidDeadline,
-            bidOpeningTime: cachedAssessment.bidOpeningTime,
-            queryDeadline: cachedAssessment.queryDeadline,
-          },
-        });
-        return NextResponse.json({ 
-          assessment: clonedAssessment,
-          cached: true,
-          message: '该文件已分析过，返回缓存结果'
-        });
       }
     }
 
@@ -225,9 +231,24 @@ export async function POST(request: NextRequest) {
     // 注入页码标记 - 5D溯源
     const contentWithAnchors = injectPageAnchors(cleanResult.cleaned);
 
-    const maxContentLength = 80000;
+    // 根据当前AI模型上下文窗口自适应截断
+    const modelContextMap: Record<string, number> = {
+      doubao: 28000,   // 32K context minus safety margin
+      deepseek: 60000, // 64K context minus safety margin
+      tongyi: 60000,
+      zhipu: 60000,
+      kimi: 110000,    // moonshot-v1-128k
+    };
+    const providerName = process.env.AI_PROVIDER || 'deepseek';
+    const modelContextTokens = modelContextMap[providerName] || 60000;
+    // 固定开销：prompt模板(~6000 tokens) + 规则提取(~3000 tokens) + AI输出(~3000 tokens)
+    const overheadTokens = 12000;
+    const availableTokens = Math.max(1000, modelContextTokens - overheadTokens);
+    const maxContentLength = Math.min(availableTokens * 4, 120000);
+    console.log(`[Analyze] 模型: ${providerName}, 上下文: ${modelContextTokens}tokens, 可用: ${availableTokens}tokens, 文档上限: ${maxContentLength}chars`);
+    
     const truncatedContent = contentWithAnchors.length > maxContentLength
-      ? contentWithAnchors.substring(0, maxContentLength) + '\n\n[... 文件内容过长，已截取前80000字符]'
+      ? contentWithAnchors.substring(0, maxContentLength) + `\n\n[... 文件内容过长（${contentWithAnchors.length}字符），已截取前${maxContentLength}字符]`
       : contentWithAnchors;
 
     // 构建控标参考规则库（注入到prompt中供AI参考）
@@ -272,60 +293,114 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
 `;
 
     // 在prompt中插入控标参考规则库和规则提取结果
-    const promptWithRules = TENDER_ANALYSIS_PROMPT.replace(
+    let promptWithRules = TENDER_ANALYSIS_PROMPT.replace(
       '## 招标文件内容',
       rulesRef + '\n\n' + ruleExtractionRef + '\n\n## 招标文件内容'
     );
-    const finalPrompt = promptWithRules.replace('{document_content}', truncatedContent);
-    console.log(`[Analyze] Prompt构建完成, 长度: ${finalPrompt.length}, 文档内容长度: ${truncatedContent.length}`);
+    let embeddedDocContent = truncatedContent;
+    let finalPrompt = promptWithRules.replace('{document_content}', embeddedDocContent);
 
+    // 后置检查：确保总prompt不超过模型上下文预算
+    // 模型上下文预算 = (modelContextTokens - maxTokens输出) * 4 chars/token
+    const outputTokenBudget = maxTokens;
+    const promptTokenBudget = Math.max(4000, modelContextTokens - outputTokenBudget - 2000); // 2000 safety
+    const promptCharBudget = promptTokenBudget * 4;
+    console.log(`[Analyze] Prompt预算: ${promptTokenBudget}tokens (${promptCharBudget}chars), 实际: ${finalPrompt.length}chars`);
+
+    if (finalPrompt.length > promptCharBudget) {
+      console.warn(`[Analyze] Prompt超预算! ${finalPrompt.length} > ${promptCharBudget}, 自动精简`);
+      // 策略：去掉规则提取结果（最占空间），只保留核心prompt + 控标规则 + 评分摘要 + 文档
+      const scoringSummary = ruleResult.scoring.length > 0
+        ? '\n\n## 已提取的评分数字\n' + ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n')
+        : '';
+      const slimPrompt = TENDER_ANALYSIS_PROMPT.replace(
+        '## 招标文件内容',
+        rulesRef + scoringSummary + '\n\n## 招标文件内容'
+      );
+      let slimDoc = embeddedDocContent;
+      let slimFinal = slimPrompt.replace('{document_content}', slimDoc);
+
+      // 如果还是超，逐步缩短文档
+      while (slimFinal.length > promptCharBudget && slimDoc.length > 500) {
+        slimDoc = slimDoc.substring(0, Math.floor(slimDoc.length * 0.8));
+        slimFinal = slimPrompt.replace('{document_content}', slimDoc);
+      }
+      finalPrompt = slimFinal;
+      embeddedDocContent = slimDoc;
+      console.log(`[Analyze] 精简后Prompt: ${finalPrompt.length}chars, 文档: ${embeddedDocContent.length}chars`);
+    }
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
 
-    const aiResponse = await callAI({
-      userId: session.user.id,
-      prompt: finalPrompt,
-      useUserApiKey: !!(quotaCheck.useUserApiKey && user?.userApiKey),
-      userApiKey: user?.userApiKey || undefined,
-      maxTokens,
-      temperature: 0.1,
-    });
-    
-    console.log(`[Analyze] AI响应完成, 内容长度: ${aiResponse.content.length}`);
-    console.log(`[Analyze] AI响应前500字: ${aiResponse.content.substring(0, 500)}`);
-    console.log(`[Analyze] AI响应后500字: ${aiResponse.content.substring(aiResponse.content.length - 500)}`);
-
-    trackBehavior({ userId: session.user.id, action: 'upload' });
-    trackBehavior({ userId: session.user.id, action: 'analyze' });
-
+    let aiResponse;
     let analysisResult;
-    try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        let jsonStr = jsonMatch[0];
-        try {
-          analysisResult = JSON.parse(jsonStr);
-        } catch {
-          const fixed = fixTruncatedJson(jsonStr);
-          analysisResult = JSON.parse(fixed);
-        }
-        console.log('[Analyze] JSON解析成功');
-        console.log('[Analyze] AI返回字段:', Object.keys(analysisResult).join(', '));
-        console.log('[Analyze] risks数量:', (analysisResult.risks || []).length);
-        console.log('[Analyze] checklist数量:', (analysisResult.checklist || []).length);
-        console.log('[Analyze] phoneQuestions数量:', (analysisResult.phoneQuestions || []).length);
-      } else {
-        throw new Error('无法解析AI响应');
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      console.log(`[Analyze] 第${attempt}次AI调用`);
+      
+      let currentPrompt = finalPrompt;
+      if (attempt === 2) {
+        // 第2次重试：缩短文档到一半以提高成功率
+        const halfLength = Math.floor(embeddedDocContent.length / 2);
+        const simplifiedContent = embeddedDocContent.substring(0, halfLength);
+        currentPrompt = finalPrompt.replace(embeddedDocContent, simplifiedContent);
+        console.log(`[Analyze] 重试：文档缩短至${simplifiedContent.length}字符`);
       }
-    } catch (parseError) {
-      console.error('[Analyze] JSON解析失败:', parseError);
-      console.error('[Analyze] AI原始响应:', aiResponse.content.substring(0, 2000));
+      
+      aiResponse = await callAI({
+        userId: session.user.id,
+        prompt: currentPrompt,
+        useUserApiKey: !!(quotaCheck.useUserApiKey && user?.userApiKey),
+        userApiKey: user?.userApiKey || undefined,
+        maxTokens,
+        temperature: 0.1,
+      });
+      
+      console.log(`[Analyze] AI响应完成(第${attempt}次), 内容长度: ${aiResponse.content.length}`);
+      console.log(`[Analyze] AI响应前500字: ${aiResponse.content.substring(0, 500)}`);
+      
+      try {
+        const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          let jsonStr = jsonMatch[0];
+          try {
+            analysisResult = JSON.parse(jsonStr);
+          } catch {
+            const fixed = fixTruncatedJson(jsonStr);
+            analysisResult = JSON.parse(fixed);
+          }
+          console.log(`[Analyze] JSON解析成功(第${attempt}次)`);
+          console.log('[Analyze] AI返回字段:', Object.keys(analysisResult).join(', '));
+          console.log('[Analyze] risks数量:', (analysisResult.risks || []).length);
+          console.log('[Analyze] checklist数量:', (analysisResult.checklist || []).length);
+          console.log('[Analyze] phoneQuestions数量:', (analysisResult.phoneQuestions || []).length);
+          break; // 成功，跳出重试循环
+        } else {
+          throw new Error('无法从AI响应中提取JSON');
+        }
+      } catch (parseError) {
+        console.error(`[Analyze] JSON解析失败(第${attempt}次):`, parseError);
+        console.error('[Analyze] AI原始响应:', aiResponse.content.substring(0, 2000));
+        if (attempt >= 2) {
+          return NextResponse.json(
+            { error: 'AI分析失败：招标文件可能含有过多图片或特殊格式，请尝试导出为纯文本PDF后重试' },
+            { status: 500 }
+          );
+        }
+        console.log('[Analyze] 正在使用缩短文档自动重试...');
+      }
+    }
+    
+    if (!analysisResult) {
       return NextResponse.json(
-        { error: `分析结果解析失败，请重试` },
+        { error: 'AI分析失败，请重试' },
         { status: 500 }
       );
     }
+    
+    trackBehavior({ userId: session.user.id, action: 'upload' });
+    trackBehavior({ userId: session.user.id, action: 'analyze' });
 
     // 验证AI返回是否包含9个必要字段
     const requiredFields = [
@@ -408,12 +483,12 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         })
       ),
       scoringRules: {
-        totalScore: Number(analysisResult.scoringRules?.totalScore) || 100,
-        objectiveScore: Number(analysisResult.scoringRules?.objectiveScore) || 0,
-        subjectiveScore: Number(analysisResult.scoringRules?.subjectiveScore) || 0,
-        priceScore: Number(analysisResult.scoringRules?.priceScore) || 0,
-        commercialScore: Number(analysisResult.scoringRules?.commercialScore) || 0,
-        technicalScore: Number(analysisResult.scoringRules?.technicalScore) || 0,
+        totalScore: Number(analysisResult.scoringRules?.totalScore) || (ruleResult.scoring.find(s => s.field === '总分')?.value) || 100,
+        objectiveScore: Number(analysisResult.scoringRules?.objectiveScore) || (ruleResult.scoring.find(s => s.field === '客观分')?.value) || 0,
+        subjectiveScore: Number(analysisResult.scoringRules?.subjectiveScore) || (ruleResult.scoring.find(s => s.field === '主观分')?.value) || 0,
+        priceScore: Number(analysisResult.scoringRules?.priceScore) || (ruleResult.scoring.find(s => s.field === '价格分')?.value) || 0,
+        commercialScore: Number(analysisResult.scoringRules?.commercialScore) || (ruleResult.scoring.find(s => s.field === '商务分')?.value) || 0,
+        technicalScore: Number(analysisResult.scoringRules?.technicalScore) || (ruleResult.scoring.find(s => s.field === '技术分')?.value) || 0,
         winningMethod: analysisResult.scoringRules?.winningMethod || '',
         evaluationMethod: analysisResult.scoringRules?.evaluationMethod || '',
         objectiveSubjectiveRatio: analysisResult.scoringRules?.objectiveSubjectiveRatio || '',

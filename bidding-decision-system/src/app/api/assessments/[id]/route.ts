@@ -32,7 +32,17 @@ export async function GET(
       return NextResponse.json({ error: '未找到评估记录' }, { status: 404 });
     }
 
-    return NextResponse.json({ assessment });
+    // Parse JSON string fields stored in DB
+    const jsonFields = ['aiResult', 'basicInfo', 'risks', 'tasks', 'scoringRules', 'qualificationReqs', 'technicalResponse', 'riskAggregation'] as const;
+    const parsed: Record<string, unknown> = { ...assessment };
+    for (const field of jsonFields) {
+      const val = (assessment as Record<string, unknown>)[field];
+      if (typeof val === 'string') {
+        try { parsed[field] = JSON.parse(val); } catch { /* keep as string */ }
+      }
+    }
+
+    return NextResponse.json({ assessment: parsed });
   } catch (error) {
     console.error('Get assessment error:', error);
     return NextResponse.json(
