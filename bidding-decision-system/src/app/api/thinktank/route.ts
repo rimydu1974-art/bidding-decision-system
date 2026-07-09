@@ -64,3 +64,31 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { slug, title, category, summary, content, tags } = body;
+
+    if (!slug || !title || !category || !content) {
+      return NextResponse.json({ error: 'slug, title, category, content required' }, { status: 400 });
+    }
+
+    const article = await prisma.thinkTankArticle.create({
+      data: {
+        slug,
+        title,
+        category,
+        summary: summary || '',
+        content,
+        tags: JSON.stringify(tags || []),
+        isPublished: true,
+      },
+    });
+
+    return NextResponse.json({ ok: true, slug: article.slug }, { status: 201 });
+  } catch (error) {
+    console.error('Create thinktank article error:', error);
+    return NextResponse.json({ error: '创建文章失败' }, { status: 500 });
+  }
+}

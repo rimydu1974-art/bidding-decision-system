@@ -7,6 +7,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
     { url: `${baseUrl}/pricing`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/thinktank`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/tools/fei-biao-jian-cha`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/tools/ping-fen-ji-suan`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/tools/zi-zhi-he-dui`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/tools/biao-shu-sheng-cheng`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
   ];
 
   // Fetch articles via API instead of Prisma directly (avoids build-time DB connection issues)
