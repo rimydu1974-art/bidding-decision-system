@@ -20,6 +20,9 @@ const publicPaths = [
   '/api/og',
   '/tools',
   '/api/thinktank',
+  '/googlec1fca0b727a07548.html',
+  '/BingSiteAuth.xml',
+  '/ByteDanceVerify.html',
 ];
 
 // 静态资源和特殊路径
