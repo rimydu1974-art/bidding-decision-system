@@ -124,6 +124,7 @@ const jsonLd = {
     "https://gitee.com/rimydu/bidding-decision-system",
     "https://github.com/rimydu1974-art/bidding-decision-system",
     "https://bidding-decision-system.vercel.app",
+    "https://zhuanlan.zhihu.com/p/2058655607767488352",
   ],
 };
 
