@@ -6,6 +6,8 @@ export interface QuotaCheckResult {
   allowed: boolean;
   reason?: string;
   useUserApiKey?: boolean;
+  canView?: boolean;
+  canExport?: boolean;
 }
 
 export interface QuotaInfo {
@@ -83,8 +85,25 @@ export async function checkAiQuota(userId: string): Promise<QuotaCheckResult> {
     };
   }
 
-  // 单次购买用户（19元）：有临时权限，使用平台API，不检查额度
+  // 单次购买用户（19元）：有临时权限，使用平台API，检查是否已分析过文件
   if (hasTempAccess) {
+    // 检查用户是否已分析过文件（通过 Assessment 表判断）
+    const hasAnalyzed = await prisma.assessment.findFirst({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    if (hasAnalyzed) {
+      // 已分析过：不允许再次分析，但允许查看结果
+      return {
+        allowed: false,
+        reason: '单次分析已用完，可以查看结果但不能导出。如需分析新项目请再次购买',
+        useUserApiKey: false,
+        canView: true,
+        canExport: false,
+      };
+    }
+
     return {
       allowed: true,
       useUserApiKey: false // 使用平台API
@@ -255,4 +274,24 @@ export async function refundAiQuota(userId: string): Promise<void> {
       aiQuotaUsed: { decrement: 1 },
     },
   });
+}
+
+// 检查用户是否可以导出文件（¥19用户7天后不能导出）
+export async function canUserExport(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return false;
+
+  const now = new Date();
+  const isPro = user.plan === 'pro' && user.planExpiresAt && user.planExpiresAt > now;
+  const isEnterprise = user.plan === 'enterprise' && user.planExpiresAt && user.planExpiresAt > now;
+
+  // 专业版/企业版：始终可以导出
+  if (isPro || isEnterprise) return true;
+
+  // ¥19单次版：7天内可以导出
+  const hasTempAccess = user.tempExpiresAt && user.tempExpiresAt > now;
+  if (hasTempAccess) return true;
+
+  // 免费用户：可以导出（老板总结预览版）
+  return true;
 }

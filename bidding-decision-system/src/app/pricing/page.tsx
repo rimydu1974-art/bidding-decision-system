@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, Crown } from 'lucide-react';
+import { CheckCircle, Crown, BookOpen } from 'lucide-react';
 import { PLANS } from '@/lib/pricing';
 
 const plans = [
@@ -94,6 +94,18 @@ export default function PricingPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 使用教程入口 */}
+      <div className="mt-12 text-center">
+        <button
+          onClick={() => router.push('/manual')}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e1e2e] hover:bg-[#2e2e42] text-[#9ca3af] hover:text-white rounded-xl transition-all border border-[#2e2e42] hover:border-[#7c3aed]/50"
+        >
+          <BookOpen className="w-5 h-5" />
+          <span>查看使用教程</span>
+          <span className="text-xs text-[#6b7280]">（10章完整指南）</span>
+        </button>
       </div>
 
       {/* FAQ */}
