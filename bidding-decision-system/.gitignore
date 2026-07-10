@@ -80,10 +80,3 @@ scripts/test-analyze-flow.cjs
 scripts/test-analyze-flow.mjs
 scripts/test-db.js
 scripts/test-feishu.js
-
-# 支付和配额逻辑（不开源）
-src/lib/payment.ts
-src/lib/quota.ts
-src/lib/pricing.ts
-src/app/api/payment/
-src/app/api/admin/orders/
