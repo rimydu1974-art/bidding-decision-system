@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenCheck 客户使用手册</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", "SimHei", sans-serif; font-size: 13px; line-height: 1.7; color: #333; background: #fff; }
+  
+  /* 封面 */
+  .cover { page-break-after: always; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%); color: #fff; text-align: center; padding: 60px 40px; }
+  .cover-logo { font-size: 48px; font-weight: 900; background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+  .cover-sub { font-size: 14px; color: #8b9bc0; letter-spacing: 8px; margin-bottom: 50px; }
+  .cover-title { font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 30px; }
+  .cover-info { font-size: 13px; color: #9ca3af; line-height: 2; }
+  .cover-bar-top { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #7c3aed, #06b6d4); }
+  .cover-bar-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #7c3aed, #06b6d4); }
+  .cover-badge { display: inline-block; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 30px; }
+  .cover-badge.purple { background: rgba(124,58,237,0.2); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+  .cover-badge.cyan { background: rgba(6,182,212,0.2); color: #67e8f9; border: 1px solid rgba(6,182,212,0.3); margin-left: 10px; }
+
+  /* 目录 */
+  .toc { page-break-after: always; padding: 40px 0; }
+  .toc h2 { font-size: 24px; color: #7c3aed; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 3px solid #7c3aed; }
+  .toc-list { list-style: none; }
+  .toc-list li { padding: 12px 0; border-bottom: 1px dashed #e5e7eb; display: flex; justify-content: space-between; }
+  .toc-list li .num { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background: #7c3aed; color: #fff; border-radius: 50%; font-size: 12px; font-weight: 700; margin-right: 12px; flex-shrink: 0; }
+  .toc-list li .text { flex: 1; font-size: 14px; color: #333; }
+
+  /* 章节标题 */
+  .chapter { page-break-before: always; }
+  .chapter:first-of-type { page-break-before: auto; }
+  .chapter-header { background: linear-gradient(135deg, #7c3aed, #5b21b6); color: #fff; padding: 20px 28px; border-radius: 12px; margin-bottom: 24px; }
+  .chapter-header .num { font-size: 14px; opacity: 0.7; margin-bottom: 4px; }
+  .chapter-header h2 { font-size: 22px; font-weight: 700; }
+
+  /* 小标题 */
+  h3 { font-size: 16px; color: #7c3aed; margin: 20px 0 12px; padding-left: 12px; border-left: 4px solid #7c3aed; }
+  h4 { font-size: 14px; color: #06b6d4; margin: 16px 0 8px; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 12px; }
+  thead th { background: #7c3aed; color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid #e5e7eb; }
+  tbody tr:nth-child(even) { background: #f8f8fc; }
+  tbody tr:hover { background: #f3f0ff; }
+
+  /* 提示框 */
+  .tip { background: linear-gradient(135deg, rgba(124,58,237,0.05), rgba(6,182,212,0.05)); border: 1px solid rgba(6,182,212,0.3); border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  .tip-title { font-weight: 700; color: #7c3aed; margin-bottom: 6px; font-size: 13px; }
+  .tip-content { color: #555; font-size: 12.5px; }
+
+  /* 警告框 */
+  .warning { background: #fff7ed; border: 1px solid #f59e0b; border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  .warning-title { font-weight: 700; color: #d97706; margin-bottom: 6px; font-size: 13px; }
+  .warning-content { color: #555; font-size: 12.5px; }
+
+  /* 重点内容 */
+  .highlight { color: #7c3aed; font-weight: 700; }
+  .highlight-cyan { color: #06b6d4; font-weight: 700; }
+
+  /* 步骤 */
+  .steps { counter-reset: step; margin: 12px 0; }
+  .step { display: flex; align-items: flex-start; margin-bottom: 12px; padding: 12px 16px; background: #f8f8fc; border-radius: 8px; border-left: 3px solid #7c3aed; }
+  .step-num { counter-increment: step; width: 28px; height: 28px; line-height: 28px; text-align: center; background: #7c3aed; color: #fff; border-radius: 50%; font-size: 12px; font-weight: 700; margin-right: 14px; flex-shrink: 0; }
+  .step-num::before { content: counter(step); }
+  .step-text { flex: 1; font-size: 13px; color: #333; }
+
+  /* 流程图 */
+  .flow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; padding: 20px; background: #f8f8fc; border-radius: 10px; }
+  .flow-item { padding: 8px 16px; background: #7c3aed; color: #fff; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .flow-arrow { color: #06b6d4; font-size: 18px; font-weight: 700; }
+
+  /* 对比表格特殊样式 */
+  .compare-table thead th { font-size: 12px; }
+  .compare-table tbody td { text-align: center; font-size: 12px; }
+  .compare-table tbody td:first-child { text-align: left; font-weight: 600; }
+  .check { color: #10b981; font-weight: 700; }
+  .cross { color: #ef4444; font-weight: 700; }
+  .free-col { background: rgba(245,245,245,0.5); }
+  .single-col { background: rgba(124,58,237,0.03); }
+  .pro-col { background: rgba(6,182,212,0.03); }
+
+  /* 截图占位 */
+  .screenshot { border: 2px dashed #d1d5db; border-radius: 10px; padding: 30px; text-align: center; margin: 16px 0; background: #fafafa; }
+  .screenshot-icon { font-size: 36px; margin-bottom: 8px; }
+  .screenshot-text { color: #9ca3af; font-size: 12px; }
+
+  /* 列表 */
+  ul, ol { margin: 8px 0 12px 20px; }
+  li { margin-bottom: 4px; }
+
+  /* 代码块 */
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: "Consolas", monospace; font-size: 12px; color: #7c3aed; }
+
+  /* 页脚 */
+  .footer { text-align: center; padding: 20px; color: #9ca3af; font-size: 11px; border-top: 1px solid #e5e7eb; margin-top: 40px; }
+
+  /* 强调块 */
+  .emphasis { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: #fff; padding: 16px 24px; border-radius: 10px; margin: 16px 0; font-size: 14px; font-weight: 600; text-align: center; }
+
+  /* 两列布局 */
+  .two-col { display: flex; gap: 16px; margin: 12px 0; }
+  .two-col > div { flex: 1; padding: 16px; border-radius: 8px; }
+  .col-purple { background: rgba(124,58,237,0.05); border: 1px solid rgba(124,58,237,0.15); }
+  .col-cyan { background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.15); }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="cover">
+  <div class="cover-bar-top"></div>
+  <div class="cover-logo">OpenCheck</div>
+  <div class="cover-sub">BID DECISION OS</div>
+  <div class="cover-title">客户使用手册</div>
+  <div>
+    <span class="cover-badge purple">AI智能分析</span>
+    <span class="cover-badge cyan">3分钟出报告</span>
+  </div>
+  <div class="cover-info" style="margin-top:40px;">
+    <div>智能投标决策平台 · 让每一次投标都有据可依</div>
+    <div style="margin-top:8px;">v1.0 · 2025年7月</div>
+  </div>
+  <div class="cover-bar-bottom"></div>
+</div>
+
+<!-- 目录 -->
+<div class="toc">
+  <h2>目 录</h2>
+  <ul class="toc-list">
+    <li><span class="num">1</span><span class="text">欢迎使用OpenCheck</span></li>
+    <li><span class="num">2</span><span class="text">注册与登录</span></li>
+    <li><span class="num">3</span><span class="text">工作台介绍</span></li>
+    <li><span class="num">4</span><span class="text">上传与分析</span></li>
+    <li><span class="num">5</span><span class="text">查看分析结果</span></li>
+    <li><span class="num">6</span><span class="text">导出报告</span></li>
+    <li><span class="num">7</span><span class="text">项目管理</span></li>
+    <li><span class="num">8</span><span class="text">评审中心</span></li>
+    <li><span class="num">9</span><span class="text">套餐与定价对比</span></li>
+    <li><span class="num">10</span><span class="text">常见问题</span></li>
+  </ul>
+</div>
+
+<!-- 第一章 欢迎使用OpenCheck -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 01</div>
+    <h2>欢迎使用OpenCheck</h2>
+  </div>
+
+  <h3>什么是OpenCheck？</h3>
+  <p>OpenCheck 是一款<span class="highlight">AI驱动的智能投标决策平台</span>，帮助投标团队在<span class="highlight-cyan">3分钟</span>内完成招标文件深度解析，自动生成投标决策评估表，提前发现废标风险。</p>
+
+  <div class="emphasis">3分钟 · 200页标书 → 1页决策摘要</div>
+
+  <h3>核心能力</h3>
+  <div class="two-col">
+    <div class="col-purple">
+      <h4>AI速读</h4>
+      <p>上传招标文件（PDF/Word/扫描件），AI深度解析资质要求、评分标准，生成老板决策摘要：是否参与 · 核心门槛 · 制胜策略</p>
+    </div>
+    <div class="col-cyan">
+      <h4>智能风控</h4>
+      <p>废标风险自动发现，合规性一键检测，缺失材料智能提醒，自动比对招标清单生成补交清单</p>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="col-purple">
+      <h4>6大核心指标</h4>
+      <p>全景扫描，每条结论附带引用来源，支持响应性审查、资质合规校验、报价合理性比对</p>
+    </div>
+    <div class="col-cyan">
+      <h4>99%拦截率</h4>
+      <p>废标隐患拦截率，200+风险规则库持续更新，覆盖资质不符、签字盖章遗漏、格式错误等常见问题</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-title">💡 适用对象</div>
+    <div class="tip-content">投标经理、商务人员、项目经理、企业管理层——所有需要参与投标决策的人员。</div>
+  </div>
+
+  <div style="text-align:center;margin:20px 0;">
+    <img src="screenshots/db50e923-8036-4c47-9648-f3272a2f2175.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">OpenCheck 首页 - 智能投标决策平台</div>
+  </div>
+</div>
+
+<!-- 第二章 注册与登录 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 02</div>
+    <h2>注册与登录</h2>
+  </div>
+
+  <h3>注册账号</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">访问 OpenCheck 官网，点击右上角 <span class="highlight">「免费注册」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">输入手机号，获取验证码</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">设置登录密码</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">完成注册，自动登录进入工作台</div></div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/a8efd679-5680-4564-b1fe-ccb73012ab07.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">注册页面 - 输入手机号和验证码</div>
+  </div>
+
+  <h3>登录账号</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">点击右上角 <span class="highlight">「登录」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">输入手机号和密码</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">点击登录进入工作台</div></div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/3c5f85d1-fc7b-4a04-810c-cefa7461c3a7.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">登录页面 - 输入手机号和密码</div>
+  </div>
+
+  <h3>忘记密码</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">在登录页面点击 <span class="highlight">「忘记密码」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">输入手机号，获取验证码</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">设置新密码，使用新密码登录</div></div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-title">💡 小贴士</div>
+    <div class="tip-content">注册即送每月20次免费AI分析额度，无需绑定信用卡。</div>
+  </div>
+</div>
+
+<!-- 第三章 工作台介绍 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 03</div>
+    <h2>工作台介绍</h2>
+  </div>
+
+  <p>登录后进入工作台首页，这里是您的操作中心。</p>
+
+  <h3>页面布局</h3>
+  <table>
+    <thead><tr><th>区域</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">顶部导航栏</span></td><td>OpenCheck Logo、工作台、项目中心、评审中心、用户中心</td></tr>
+      <tr><td><span class="highlight">AI额度显示</span></td><td>左下角显示本月剩余额度（如：7/20）</td></tr>
+      <tr><td><span class="highlight">快捷操作</span></td><td>新建项目、上传文件入口</td></tr>
+    </tbody>
+  </table>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/f51ace8b-c140-4f28-9f02-30123f8796c5.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">工作台首页 - 项目概览和快捷操作</div>
+  </div>
+
+  <h3>主要导航</h3>
+  <table>
+    <thead><tr><th>导航项</th><th>功能</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">工作台</span></td><td>首页，显示项目概览和快捷操作</td></tr>
+      <tr><td><span class="highlight">项目中心</span></td><td>管理您的投标项目列表</td></tr>
+      <tr><td><span class="highlight">评审中心</span></td><td>包含智库（行业文章）和案例中心（脱敏案例库）</td></tr>
+      <tr><td><span class="highlight">企业素材库</span></td><td>管理企业资质、证书等投标材料</td></tr>
+      <tr><td><span class="highlight">用户中心</span></td><td>个人设置、API Key配置、套餐管理</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 第四章 上传与分析 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 04</div>
+    <h2>上传与分析</h2>
+  </div>
+
+  <h3>完整流程</h3>
+  <div class="flow">
+    <span class="flow-item">上传招标文件</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-item">AI自动分析</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-item">查看分析结果</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-item">上传投标文件（可选）</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-item">深度评估</span>
+  </div>
+
+  <h3>第一步：上传招标文件</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">点击 <span class="highlight">「新建项目」</span> 或 <span class="highlight">「上传招标文件」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">选择招标文件（支持 PDF、Word 格式）</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">等待文件上传完成</div></div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/5a3f574e-03b4-489d-9200-d575b5241ce0.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">上传招标文件</div>
+  </div>
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/93f74721-300c-4682-94ee-d6de4ec00e6a.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">文件上传中</div>
+  </div>
+
+  <h3>第二步：AI自动分析</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">文件上传后，系统自动启动AI分析</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">页面显示分析进度条</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">分析时间取决于文件大小，通常 <span class="highlight-cyan">1-3 分钟</span></div></div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/8c568765-f10d-4799-ad0e-c8b597934d5b.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">AI分析进度 - 自动解析招标文件</div>
+  </div>
+
+  <h3>第三步：查看分析结果</h3>
+  <p>分析完成后，自动进入项目详情页，展示：</p>
+  <ul>
+    <li><span class="highlight">投标决策表</span>（6大类信息提取）</li>
+    <li><span class="highlight">老板总结</span>（是否参与、核心门槛、制胜策略）</li>
+    <li><span class="highlight">偏离表</span>（招标要求 vs 投标响应）</li>
+    <li><span class="highlight">风险评估</span>（废标风险、高/中/低分级）</li>
+    <li><span class="highlight">评分预测</span>（评分项拆解、得分预估）</li>
+  </ul>
+
+  <h3>第四步：上传投标文件（可选）</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">在项目详情页，点击 <span class="highlight">「上传投标文件」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">选择您的投标文件</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">系统自动对比招标文件和投标文件</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">生成深度评估报告（偏离分析、差距提醒）</div></div>
+  </div>
+
+  <div class="warning">
+    <div class="warning-title">⚠️ 注意</div>
+    <div class="warning-content">支持的文件格式：PDF、Word（.doc/.docx）。扫描件请确保文字清晰可读。</div>
+  </div>
+</div>
+
+<!-- 第五章 查看分析结果 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 05</div>
+    <h2>查看分析结果</h2>
+  </div>
+
+  <h3>投标决策表（6大类）</h3>
+  <table>
+    <thead><tr><th>类别</th><th>包含内容</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">第1类：基本信息</span></td><td>项目名称、编号、招标企业、联系人、代理机构、开标方式、开标地点等</td></tr>
+      <tr><td><span class="highlight">第2类：财务信息</span></td><td>预算金额、最高限价、付款方式、保证金、代理费等</td></tr>
+      <tr><td><span class="highlight">第3类：资质要求</span></td><td>联合体投标、特殊资质、资格性审查、符合性审查等</td></tr>
+      <tr><td><span class="highlight">第4类：评分规则</span></td><td>总分、客观分/主观分、价格分、废标说明、评分特别要求等</td></tr>
+      <tr><td><span class="highlight">第5类：时间要求</span></td><td>开标时间、提问截止、交货时间、合同履约期限等</td></tr>
+      <tr><td><span class="highlight">第6类：项目信息</span></td><td>技术需求、废标条件、密封要求、盖章要求等</td></tr>
+    </tbody>
+  </table>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/1766ad80-a1d1-4dfe-9912-d0fda3946015.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">投标决策评估表 - 6大类信息提取结果</div>
+  </div>
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/1f5bc201-e0c7-4256-9c6f-a9822739a17f.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">分析结果详情 - 风险评估与评分预测</div>
+  </div>
+
+  <h3>老板总结</h3>
+  <p>为管理层提供快速决策依据：</p>
+  <div class="two-col">
+    <div class="col-purple">
+      <h4>是否建议投标</h4>
+      <p>基于招标条件和竞争态势，给出「建议投标」「谨慎投标」「不建议投标」的明确建议</p>
+    </div>
+    <div class="col-cyan">
+      <h4>核心门槛</h4>
+      <p>必须满足的条件、制胜策略、风险提示——一页纸掌握关键信息</p>
+    </div>
+  </div>
+
+  <h3>偏离表</h3>
+  <p>对比招标要求与投标响应，标注：</p>
+  <ul>
+    <li><span class="check">✅ 完全满足</span> — 投标响应完全符合招标要求</li>
+    <li><span style="color:#f59e0b;font-weight:700;">⚠️ 部分偏离</span> — 存在差异，需评估影响</li>
+    <li><span class="cross">❌ 不满足</span> — 未达到招标要求，可能导致废标</li>
+  </ul>
+
+  <h3>风险评估</h3>
+  <p>按严重程度分级：</p>
+  <table>
+    <thead><tr><th>等级</th><th>颜色</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><span class="cross">严重风险</span></td><td>🔴</td><td>可能导致废标，必须立即处理</td></tr>
+      <tr><td><span style="color:#f97316;font-weight:700;">高风险</span></td><td>🟠</td><td>需重点关注，建议优先解决</td></tr>
+      <tr><td><span style="color:#eab308;font-weight:700;">中等风险</span></td><td>🟡</td><td>建议优化，不影响大局</td></tr>
+      <tr><td><span class="check">低风险</span></td><td>🟢</td><td>可接受，保持关注即可</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 第六章 导出报告 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 06</div>
+    <h2>导出报告</h2>
+  </div>
+
+  <h3>导出步骤</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">在项目详情页，点击右上角 <span class="highlight">「导出报告」</span> 按钮</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">选择导出格式</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">文件自动下载到本地</div></div>
+  </div>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/1766ad80-a1d1-4dfe-9912-d0fda3946015.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">点击右上角「导出报告」按钮</div>
+  </div>
+
+  <h3>导出格式</h3>
+  <div class="two-col">
+    <div class="col-purple">
+      <h4>导出 Excel</h4>
+      <p>投标决策评估表（.xlsx），可用Excel/WPS编辑，适合二次加工和团队协作</p>
+    </div>
+    <div class="col-cyan">
+      <h4>导出 PDF</h4>
+      <p>排版报告，色块分区，适合打印和分享给领导/客户</p>
+    </div>
+  </div>
+
+  <h3>不同套餐的导出内容</h3>
+  <table>
+    <thead><tr><th>套餐</th><th>导出内容</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">免费版</span></td><td>投标决策表（6大类完整），老板总结（仅数量预览）</td></tr>
+      <tr><td><span class="highlight">单次版 ¥19</span></td><td>完整投标决策表 + 完整老板总结（7天内可导出）</td></tr>
+      <tr><td><span class="highlight">专业版 ¥99</span></td><td>全部内容完整导出</td></tr>
+    </tbody>
+  </table>
+
+  <div class="tip">
+    <div class="tip-title">💡 提示</div>
+    <div class="tip-content">免费用户可导出投标决策评估表，老板总结部分仅显示数量预览。升级后可导出完整内容。</div>
+  </div>
+</div>
+
+<!-- 第七章 项目管理 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 07</div>
+    <h2>项目管理</h2>
+  </div>
+
+  <h3>项目列表</h3>
+  <p>在 <span class="highlight">「项目中心」</span> 查看所有投标项目：</p>
+  <table>
+    <thead><tr><th>字段</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">项目名称</span></td><td>招标文件名称</td></tr>
+      <tr><td><span class="highlight">状态</span></td><td>草稿 / 分析中 / 已完成</td></tr>
+      <tr><td><span class="highlight">创建时间</span></td><td>项目创建日期</td></tr>
+      <tr><td><span class="highlight">更新时间</span></td><td>最后修改日期</td></tr>
+      <tr><td><span class="highlight">操作</span></td><td>查看、编辑、删除</td></tr>
+    </tbody>
+  </table>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/ff431782-4c9e-4dbb-8cb1-07627db82d9a.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">项目管理 - 项目列表与状态</div>
+  </div>
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/ed72fc89-6d5b-4fb6-a97f-2f14db4e8537.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">项目中心 - 侧边栏导航与项目列表</div>
+  </div>
+
+  <h3>筛选项目</h3>
+  <ul>
+    <li>按状态筛选：全部 / 草稿 / 分析中 / 已完成</li>
+    <li>按关键词搜索项目名称</li>
+  </ul>
+
+  <h3>新建项目</h3>
+  <p>点击右上角 <span class="highlight">「+ 新建项目」</span>，开始新的投标分析。</p>
+</div>
+
+<!-- 第八章 评审中心 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 08</div>
+    <h2>评审中心</h2>
+  </div>
+
+  <h3>智库</h3>
+  <p>平台发布的行业深度内容，帮助您了解招投标趋势：</p>
+  <table>
+    <thead><tr><th>分类</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">法规解读</span></td><td>最新招投标法规分析与合规指南</td></tr>
+      <tr><td><span class="highlight">废标案例</span></td><td>真实废标原因复盘，避免踩坑</td></tr>
+      <tr><td><span class="highlight">决策推演</span></td><td>投标决策模型与方法论</td></tr>
+      <tr><td><span class="highlight">行业洞察</span></td><td>市场趋势与竞争分析</td></tr>
+      <tr><td><span class="highlight">技术趋势</span></td><td>AI在招投标领域的最新应用</td></tr>
+    </tbody>
+  </table>
+  <p>支持按分类筛选和关键词搜索。</p>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/efe3e1c1-fb22-4157-96ed-65470feb94c4.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">智库 - 行业法规解读与废标案例</div>
+  </div>
+
+  <h3>案例中心</h3>
+  <p>用户上传的脱敏投标案例，建立行业资源库：</p>
+  <table>
+    <thead><tr><th>来源</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><span class="highlight">平台收录</span></td><td>平台精选的典型案例</td></tr>
+      <tr><td><span class="highlight">匿名投稿</span></td><td>用户匿名分享的实战案例</td></tr>
+      <tr><td><span class="highlight">专家分享</span></td><td>行业专家的深度分析</td></tr>
+    </tbody>
+  </table>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/f8fa20d9-0bae-46e2-8417-9bc3606f2adb.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">案例中心 - 脱敏案例库与匿名投稿</div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-title">💡 您可以</div>
+    <div class="tip-content">
+      1. 浏览其他用户的脱敏案例<br>
+      2. 匿名投稿自己的案例（自动脱敏）<br>
+      3. 基于案例学习投标策略
+    </div>
+  </div>
+</div>
+
+<!-- 第九章 套餐与定价对比 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 09</div>
+    <h2>套餐与定价对比</h2>
+  </div>
+
+  <h3>三档套餐</h3>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;">功能</th>
+        <th class="free-col">免费版 ¥0</th>
+        <th class="single-col">单次版 ¥19</th>
+        <th class="pro-col">专业版 ¥99</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>每月AI额度</td>
+        <td class="free-col">20次</td>
+        <td class="single-col">1次(7天内)</td>
+        <td class="pro-col"><span class="highlight-cyan">不限</span></td>
+      </tr>
+      <tr>
+        <td>投标决策表</td>
+        <td class="free-col">6大类完整</td>
+        <td class="single-col">6大类完整</td>
+        <td class="pro-col">6大类完整</td>
+      </tr>
+      <tr>
+        <td>老板总结</td>
+        <td class="free-col">仅数量</td>
+        <td class="single-col"><span class="check">完整</span></td>
+        <td class="pro-col"><span class="check">完整</span></td>
+      </tr>
+      <tr>
+        <td>偏离表</td>
+        <td class="free-col">仅要求列</td>
+        <td class="single-col"><span class="check">完整(要求+响应)</span></td>
+        <td class="pro-col"><span class="check">完整</span></td>
+      </tr>
+      <tr>
+        <td>风险评估</td>
+        <td class="free-col">模糊预览</td>
+        <td class="single-col"><span class="check">完整</span></td>
+        <td class="pro-col"><span class="check">完整</span></td>
+      </tr>
+      <tr>
+        <td>评分预测</td>
+        <td class="free-col">模糊预览</td>
+        <td class="single-col"><span class="check">完整</span></td>
+        <td class="pro-col"><span class="check">完整</span></td>
+      </tr>
+      <tr>
+        <td>准备清单</td>
+        <td class="free-col">仅数量</td>
+        <td class="single-col"><span class="check">✅ 完整</span></td>
+        <td class="pro-col"><span class="check">✅ 完整</span></td>
+      </tr>
+      <tr>
+        <td>标书生成</td>
+        <td class="free-col"><span class="cross">❌</span></td>
+        <td class="single-col"><span class="check">✅</span></td>
+        <td class="pro-col"><span class="check">✅</span></td>
+      </tr>
+      <tr>
+        <td>AI投标助手</td>
+        <td class="free-col"><span class="cross">❌</span></td>
+        <td class="single-col"><span class="cross">❌</span></td>
+        <td class="pro-col"><span class="check">✅</span></td>
+      </tr>
+      <tr>
+        <td>导出PDF/Excel</td>
+        <td class="free-col"><span class="check">✅</span>(决策表,老板总结预览)</td>
+        <td class="single-col"><span class="check">✅</span>(7天内,完整)</td>
+        <td class="pro-col"><span class="check">✅</span>(完整)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="text-align:center;margin:16px 0;">
+    <img src="screenshots/0790c9e2-8e4b-4dda-b49f-d4b62f727b7c.png" style="max-width:100%;border-radius:10px;border:1px solid #e5e7eb;" />
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px;">套餐与定价页面 - 选择适合您的方案</div>
+  </div>
+
+  <h3>如何升级</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num"></div><div class="step-text">进入 <span class="highlight">「用户中心」</span> → <span class="highlight">「专业版与用量」</span></div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">选择适合的套餐</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">完成支付（支持微信/支付宝）</div></div>
+    <div class="step"><div class="step-num"></div><div class="step-text">即时生效</div></div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-title">💡 省钱建议</div>
+    <div class="tip-content">如果您每月分析3个以上项目，专业版¥99/月比单次版¥19/次更划算（3×19=57元接近99元，且专业版不限额度+AI助手+标书生成）。</div>
+  </div>
+</div>
+
+<!-- 第十章 常见问题 -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="num">CHAPTER 10</div>
+    <h2>常见问题</h2>
+  </div>
+
+  <h3>Q：免费额度用完了怎么办？</h3>
+  <p>您可以：</p>
+  <ul>
+    <li>等待下月额度重置（每月1日自动重置）</li>
+    <li>配置自己的AI API Key（DeepSeek/通义千问/智谱等）</li>
+    <li>升级为专业版享受不限额度</li>
+  </ul>
+
+  <h3>Q：如何配置自己的API Key？</h3>
+  <p>进入 <span class="highlight">「用户中心」</span> → <span class="highlight">「API Key配置」</span>，填入您的API Key即可。专业版/企业版用户必须配置自己的API Key。</p>
+
+  <h3>Q：导出的报告格式是什么？</h3>
+  <ul>
+    <li><span class="highlight">Excel格式</span>：投标决策评估表（.xlsx），可用Excel/WPS编辑</li>
+    <li><span class="highlight">PDF格式</span>：排版报告，色块分区，适合打印分享</li>
+  </ul>
+
+  <h3>Q：免费用户可以导出吗？</h3>
+  <p>可以。免费用户可导出投标决策评估表，但老板总结部分仅显示数量预览。</p>
+
+  <h3>Q：单次版¥19有时间限制吗？</h3>
+  <p>购买后<span class="highlight-cyan">7天内</span>可导出完整报告，7天后无法导出，但仍可查看分析结果。</p>
+
+  <h3>Q：如何上传投标文件进行深度评估？</h3>
+  <p>在项目详情页，分析结果下方有「上传投标文件」入口，上传后系统自动对比分析。</p>
+
+  <h3>Q：案例中心的案例安全吗？</h3>
+  <p>所有用户上传的案例都会经过<span class="highlight">自动脱敏处理</span>，隐藏敏感信息后才展示。</p>
+
+  <div class="emphasis">OpenCheck - 让每一次投标都有据可依</div>
+</div>
+
+<div class="footer">
+  <p>OpenCheck · BID DECISION OS · 智能投标决策平台</p>
+  <p>www.opencheck.com.cn</p>
+</div>
+
+</body>
+</html>

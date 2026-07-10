@@ -57,6 +57,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: quotaCheck.reason }, { status: 403 });
     }
 
+    // 评分预测仅限付费用户（¥19单次版及以上）
+    const userCheck = await prisma.user.findUnique({ where: { id: session.user.id } });
+    const now = new Date();
+    const hasTempAccess = !!(userCheck?.tempExpiresAt && userCheck.tempExpiresAt > now);
+    const isPro = !!(userCheck?.plan === 'pro' && userCheck.planExpiresAt && userCheck.planExpiresAt > now);
+    const isEnterprise = !!(userCheck?.plan === 'enterprise' && userCheck.planExpiresAt && userCheck.planExpiresAt > now);
+    const isPaidUser = hasTempAccess || isPro || isEnterprise;
+
+    if (!isPaidUser) {
+      return NextResponse.json({ error: '评分预测功能需要购买后使用，请先升级到¥19单次版或更高套餐' }, { status: 403 });
+    }
+
     const contentType = request.headers.get('content-type') || '';
     let allContent = '';
     let projectId: string | null = null;

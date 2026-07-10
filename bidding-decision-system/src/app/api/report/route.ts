@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateSession, getTokenFromRequest } from '@/lib/auth';
+import { canUserExport } from '@/lib/quota';
 
 export async function POST(request: NextRequest) {
   try {
+    // 服务端验证导出权限
+    const token = getTokenFromRequest(request);
+    if (token) {
+      const session = await validateSession(token);
+      if (session) {
+        const canExport = await canUserExport(session.user.id);
+        if (!canExport) {
+          return NextResponse.json({ 
+            error: '7天有效期已过，可以查看结果但不能导出。如需继续使用请再次购买' 
+          }, { status: 403 });
+        }
+      }
+    }
+
     const body = await request.json();
     const data = body.assessment || body;
     const isPaid = body.isPaid || false;

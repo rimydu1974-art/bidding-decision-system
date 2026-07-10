@@ -18,6 +18,12 @@ import { extractAllSymbolItems } from '@/lib/rule-extractors/symbol-extractor';
 
 export const dynamic = 'force-dynamic';
 
+// 检测文件是否为投标文件（基于文件名关键词）
+function isBidDocument(fileName: string): boolean {
+  const bidKeywords = ['投标', '标书', '技术方案', '商务文件', '技术文件', '商务技术', '偏离表', '报价', '资质证明'];
+  return bidKeywords.some(kw => fileName.includes(kw));
+}
+
 const CHINESE_DATE_PATTERNS: Array<[RegExp, (m: RegExpExecArray) => Date]> = [
   [/(\d{4})[年\-\/](\d{1,2})[月\-\/](\d{1,2})[日]?/g, (m) => new Date(+m[1], +m[2] - 1, +m[3])],
   [/(\d{4})-(\d{1,2})-(\d{1,2})/g, (m) => new Date(+m[1], +m[2] - 1, +m[3])],
@@ -125,6 +131,34 @@ export async function POST(request: NextRequest) {
 
     if (file.size > 100 * 1024 * 1024) {
       return NextResponse.json({ error: '文件大小不能超过100MB' }, { status: 400 });
+    }
+
+    // 检测是否为投标文件
+    const fileIsBid = isBidDocument(file.name);
+    console.log(`[Analyze] 文件类型检测: ${fileIsBid ? '投标文件' : '招标文件'}, 文件名: ${file.name}`);
+
+    // 投标文件限制：免费用户不能上传投标文件
+    if (fileIsBid) {
+      const hasTempAccess = !!(userInfo?.tempExpiresAt && userInfo.tempExpiresAt > now);
+      const isPaidUser = isPro || isEnterprise || hasTempAccess;
+      if (!isPaidUser) {
+        return NextResponse.json({ 
+          error: '免费用户只能分析招标文件，投标文件分析需要购买¥19单次版或更高套餐' 
+        }, { status: 403 });
+      }
+
+      // ¥19单次版：只能上传1个投标文件
+      if (hasTempAccess && !isPro && !isEnterprise) {
+        const bidAnalysisCount = await prisma.assessment.count({
+          where: { userId: session.user.id },
+        });
+        // 单次版用户如果已有分析记录，说明已经用过1次招标+1次投标
+        if (bidAnalysisCount >= 2) {
+          return NextResponse.json({ 
+            error: '¥19单次版只能分析1个招标文件+1个投标文件，如需分析更多请升级到¥99专业版' 
+          }, { status: 403 });
+        }
+      }
     }
 
     console.log(`[Analyze] 开始处理文件: ${file.name}, 大小: ${file.size} bytes`);
@@ -643,6 +677,29 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       },
       createdAt: new Date(),
     };
+
+    // 免费用户内容限制：只提供概要，不提供详细内容
+    const isFreeUser = !hasTempAccess && !isPro && !isEnterprise;
+    if (isFreeUser) {
+      // 电话问题：只保留数量，清空实际内容
+      assessment.phoneQuestions = assessment.phoneQuestions.map((q: Record<string, unknown>) => ({
+        ...q,
+        answer: '(升级到¥19单次版查看完整内容)',
+        reason: '(升级到¥19单次版查看完整内容)',
+      }));
+      // 关键风险：只保留数量，清空详细描述和建议
+      assessment.risks = assessment.risks.map((r: Record<string, unknown>) => ({
+        ...r,
+        description: `${r.level || 'medium'}级别风险`,
+        suggestion: '(升级到¥19单次版查看完整建议)',
+        impact: '(升级到¥19单次版查看完整影响分析)',
+      }));
+      // 准备清单：只保留数量，清空详细说明
+      assessment.checklist = assessment.checklist.map((item: Record<string, unknown>) => ({
+        ...item,
+        note: '(升级到¥19单次版查看完整说明)',
+      }));
+    }
 
     // 规则引擎检查 - 完整TenderData映射
     const ruleEngine = new RuleEngine();

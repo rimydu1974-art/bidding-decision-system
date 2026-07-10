@@ -135,6 +135,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: quotaCheck.reason }, { status: 403 });
     }
 
+    // 标书生成仅限付费用户（¥19单次版及以上）
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+    const now = new Date();
+    const hasTempAccess = !!(user?.tempExpiresAt && user.tempExpiresAt > now);
+    const isPro = !!(user?.plan === 'pro' && user.planExpiresAt && user.planExpiresAt > now);
+    const isEnterprise = !!(user?.plan === 'enterprise' && user.planExpiresAt && user.planExpiresAt > now);
+    const isPaidUser = hasTempAccess || isPro || isEnterprise;
+
+    if (!isPaidUser) {
+      return NextResponse.json({ error: '标书生成功能需要购买后使用，请先升级到¥19单次版或更高套餐' }, { status: 403 });
+    }
+
     const {
       type,
       tenderSummary,
@@ -176,10 +188,6 @@ export async function POST(request: NextRequest) {
     prompt = prompt.replace('{qualificationReqs}', qualificationReqs || '未提供');
     prompt = prompt.replace('{risks}', risks || '未提供');
     prompt = prompt.replace('{knowledgeContent}', knowledgeContent || '未提供');
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
 
     const aiResponse = await callAI({
       userId: session.user.id,
