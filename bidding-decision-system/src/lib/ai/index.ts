@@ -2,6 +2,32 @@ import { AIProvider } from './types';
 import { AIOptions, AIResponse } from '@/types';
 import { OpenAICompatibleProvider } from './providers/openai-compatible';
 
+// 检查AI响应质量：返回9个必要字段的填充率 (0~1)
+function assessResponseQuality(content: string): number {
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return 0;
+    const parsed = JSON.parse(jsonMatch[0]);
+    const requiredFields = [
+      'basicInfo', 'financialInfo', 'qualificationRequirements',
+      'scoringRules', 'timeRequirements', 'projectInfo', 'phoneQuestions',
+      'risks', 'checklist'
+    ];
+    let filled = 0;
+    for (const field of requiredFields) {
+      const val = parsed[field];
+      if (val !== undefined && val !== null && val !== '' &&
+          !(Array.isArray(val) && val.length === 0) &&
+          !(typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)) {
+        filled++;
+      }
+    }
+    return filled / requiredFields.length;
+  } catch {
+    return 0;
+  }
+}
+
 export class AIService {
   private providers: Map<string, AIProvider> = new Map();
   private defaultProvider: string;
@@ -156,7 +182,17 @@ export class AIService {
 
     if (provider) {
       try {
-        return await provider.analyze(prompt, options);
+        const response = await provider.analyze(prompt, options);
+
+        // 质量检查：响应内容中9个必要字段填充率低于40%时视为无效
+        const quality = assessResponseQuality(response.content);
+        console.log(`[AIService] ${targetProvider} 响应质量: ${(quality * 100).toFixed(0)}%`);
+        if (quality < 0.4) {
+          console.warn(`[AIService] ${targetProvider} 响应质量过低(${(quality * 100).toFixed(0)}%), 触发备用模型`);
+          return this.fallback(prompt, targetProvider, options);
+        }
+
+        return response;
       } catch (error) {
         console.error(`${targetProvider} failed:`, error);
         return this.fallback(prompt, targetProvider, options);

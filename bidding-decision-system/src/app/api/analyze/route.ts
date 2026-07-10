@@ -340,10 +340,19 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     });
 
     let aiResponse;
-    let analysisResult;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let analysisResult: any = null;
+    let currentProvider: string | undefined = undefined; // undefined = 使用默认模型
+
+    // 超长文档自动切换到大上下文模型（豆包28K上下文不够用）
+    const doubaoMaxChars = 100000; // 约25K tokens，豆包安全阈值
+    if (providerName === 'doubao' && truncatedContent.length > doubaoMaxChars) {
+      console.log(`[Analyze] 文档过长(${truncatedContent.length}字符 > ${doubaoMaxChars})，豆包28K上下文不够，自动切换DeepSeek`);
+      currentProvider = 'deepseek';
+    }
     
     for (let attempt = 1; attempt <= 2; attempt++) {
-      console.log(`[Analyze] 第${attempt}次AI调用`);
+      console.log(`[Analyze] 第${attempt}次AI调用${currentProvider ? ` (指定: ${currentProvider})` : ''}`);
       
       let currentPrompt = finalPrompt;
       if (attempt === 2) {
@@ -361,6 +370,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         userApiKey: user?.userApiKey || undefined,
         maxTokens,
         temperature: 0.1,
+        provider: currentProvider,
       });
       
       console.log(`[Analyze] AI响应完成(第${attempt}次), 内容长度: ${aiResponse.content.length}`);
@@ -381,6 +391,29 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
           console.log('[Analyze] risks数量:', (analysisResult.risks || []).length);
           console.log('[Analyze] checklist数量:', (analysisResult.checklist || []).length);
           console.log('[Analyze] phoneQuestions数量:', (analysisResult.phoneQuestions || []).length);
+          
+          // 质量检查：9个必要字段填充率低于40%时，切换到deepseek重试
+          const requiredFields = [
+            'basicInfo', 'financialInfo', 'qualificationRequirements',
+            'scoringRules', 'timeRequirements', 'projectInfo', 'phoneQuestions',
+            'risks', 'checklist'
+          ];
+          const filledFields = requiredFields.filter(f => {
+            const v = analysisResult[f];
+            return v !== undefined && v !== null && v !== '' &&
+              !(Array.isArray(v) && v.length === 0) &&
+              !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+          });
+          const qualityRatio = filledFields.length / requiredFields.length;
+          console.log(`[Analyze] 响应质量: ${(qualityRatio * 100).toFixed(0)}% (${filledFields.length}/${requiredFields.length})`);
+          
+          if (qualityRatio < 0.4 && attempt < 2) {
+            console.warn(`[Analyze] 响应质量过低，第2次切换到deepseek重试...`);
+            currentProvider = 'deepseek';
+            analysisResult = null; // 清空，继续重试
+            continue;
+          }
+          
           break; // 成功，跳出重试循环
         } else {
           throw new Error('无法从AI响应中提取JSON');
