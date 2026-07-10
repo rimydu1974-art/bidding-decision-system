@@ -24,6 +24,7 @@ const publicPaths = [
   '/googled19dd6751db24ff1.html',
   '/BingSiteAuth.xml',
   '/ByteDanceVerify.html',
+  '/docs',
 ];
 
 // 静态资源和特殊路径
