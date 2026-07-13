@@ -111,3 +111,5 @@ frontend/
 read_geo_docx.py
 read_geo_docx2.py
 
+
+.vercel

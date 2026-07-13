@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/sidebar';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { RiskBadge } from '@/components/ui/risk-badge';
 import { SoftRejectionBanner } from '@/components/ui/soft-rejection-banner';
+import { uploadFileInChunks, formatFileSize, UploadProgress } from '@/lib/chunk-upload';
 import {
   ArrowLeft,
   Download,
@@ -116,6 +117,7 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
   const [progress, setProgress] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
@@ -125,8 +127,8 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
     }
     let totalSize = 0;
     for (const f of [...files, ...newFiles]) { totalSize += f.size; }
-    if (totalSize > 30 * 1024 * 1024) {
-      setError('文件总大小不能超过30MB');
+    if (totalSize > 100 * 1024 * 1024) {
+      setError('文件总大小不能超过100MB');
       return;
     }
     setError('');
@@ -145,37 +147,46 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
     setProgressPercent(5);
     setAnalysisPhase('upload');
 
-    // 模拟分阶段进度条
-    const phases = [
-      { percent: 10, label: 'upload', text: '正在上传文件...' },
-      { percent: 18, label: 'parse', text: '正在解析文档内容...' },
-      { percent: 28, label: 'clean', text: '正在清洗文本、注入页码标记...' },
-      { percent: 35, label: 'prepare', text: '正在构建AI分析指令...' },
-      { percent: 45, label: 'ai_start', text: 'AI正在阅读招标文件...' },
-      { percent: 60, label: 'ai_mid', text: 'AI正在提取关键信息...' },
-      { percent: 75, label: 'ai_late', text: 'AI正在生成风险评估...' },
-      { percent: 88, label: 'rule', text: '正在运行规则引擎检查...' },
-      { percent: 95, label: 'save', text: '正在保存分析结果...' },
-    ];
-
-    let phaseIdx = 0;
-    const progressTimer = setInterval(() => {
-      if (phaseIdx < phases.length) {
-        setProgressPercent(phases[phaseIdx].percent);
-        setProgress(phases[phaseIdx].text);
-        setAnalysisPhase(phases[phaseIdx].label);
-        phaseIdx++;
-      }
-    }, 6000); // 每6秒推进一个阶段，总约54秒
+    // Get auth token
+    const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || '';
 
     try {
       let lastAssessmentId: string | null = null;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        setProgress(`正在上传第 ${i + 1}/${files.length} 个文件: ${file.name}`);
+
+        // Use chunk upload for all files
+        const uploadResult = await uploadFileInChunks(
+          file,
+          token,
+          (progress) => {
+            setUploadProgress(progress);
+            setProgressPercent(Math.round((i / files.length) * 50 + (progress.percent / files.length) * 0.5));
+            if (progress.stage === 'uploading') {
+              setProgress(`正在上传 ${file.name}: ${progress.percent}%`);
+            } else if (progress.stage === 'merging') {
+              setProgress(`正在合并 ${file.name}...`);
+            }
+          }
+        );
+
+        if (!uploadResult.complete || !uploadResult.uploadId) {
+          throw new Error('文件上传失败');
+        }
+
+        setProgress(`正在分析 ${file.name}...`);
+        setProgressPercent(50 + (i / files.length) * 50);
+
+        // Send analyze request with uploadId
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('uploadId', uploadResult.uploadId);
         formData.append('projectId', projectId);
-        const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || '分析失败');
@@ -185,7 +196,7 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
           lastAssessmentId = data.assessment.id;
         }
       }
-      clearInterval(progressTimer);
+
       setProgressPercent(100);
       setProgress('分析完成，正在加载结果...');
       setAnalysisPhase('done');
@@ -196,19 +207,15 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
         window.location.reload();
       }
     } catch (err) {
-      clearInterval(progressTimer);
       setError(err instanceof Error ? err.message : '分析失败');
       setAnalyzing(false);
       setProgressPercent(0);
       setAnalysisPhase('');
+      setUploadProgress(null);
     }
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
+  const formatSize = (bytes: number) => formatFileSize(bytes);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0A0A12]">
@@ -226,7 +233,7 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
             <div className="glass-card p-8 text-center mb-6">
               <FileText className="w-16 h-16 text-[#7c3aed] mx-auto mb-4" />
               <h2 className="text-xl font-bold text-white mb-2">上传招标文件开始分析</h2>
-              <p className="text-sm text-[#6b7280] mb-6">支持 PDF、Word、Excel 格式，最多3个文件，总大小不超过30MB</p>
+              <p className="text-sm text-[#6b7280] mb-6">支持 PDF、Word、Excel 格式，最多3个文件，总大小不超过100MB</p>
               <label className={`cursor-pointer inline-flex items-center gap-2 btn-primary px-8 py-3 ${analyzing ? 'opacity-50 pointer-events-none' : ''}`}>
                 <FileText className="w-5 h-5" />
                 {files.length > 0 ? '继续添加文件' : '选择招标文件'}
@@ -289,9 +296,14 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
                     }}
                   />
                 </div>
+                {uploadProgress && uploadProgress.stage === 'uploading' && (
+                  <div className="mt-2 text-[10px] text-[#6b7280]">
+                    已上传: {formatFileSize(uploadProgress.loaded)} / {formatFileSize(uploadProgress.total)}
+                  </div>
+                )}
                 <div className="flex justify-between mt-2 text-[10px] text-[#6b7280]">
-                  <span>预计总耗时约54秒</span>
-                  <span>{analysisPhase === 'done' ? '完成' : `阶段 ${Math.ceil(progressPercent / 12)}/9`}</span>
+                  <span>{uploadProgress?.stage === 'uploading' ? '文件上传中' : 'AI分析中'}</span>
+                  <span>{analysisPhase === 'done' ? '完成' : `${Math.round(progressPercent)}%`}</span>
                 </div>
               </div>
             )}

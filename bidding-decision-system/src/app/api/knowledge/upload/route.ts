@@ -33,27 +33,56 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const uploadId = formData.get('uploadId') as string;
     const category = (formData.get('category') as string) || '其他';
 
-    if (!file) {
-      return NextResponse.json({ error: '请选择文件' }, { status: 400 });
-    }
+    let file: File;
+    let fileName: string;
+    let fileType: string;
 
-    // 检查文件大小
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `文件大小超过限制（最大 ${MAX_FILE_SIZE / 1024 / 1024}MB）` },
-        { status: 400 }
-      );
-    }
+    if (uploadId) {
+      // Chunked upload - read assembled file from disk
+      const { readFile: fsReadFile, readdir } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const pathMod = await import('path');
+      const uploadsDir = pathMod.default.join(process.cwd(), 'tmp', 'uploads');
+      if (!existsSync(uploadsDir)) {
+        return NextResponse.json({ error: '文件不存在或已过期' }, { status: 400 });
+      }
+      const files = await readdir(uploadsDir);
+      const matchFile = files.find(f => f.startsWith(uploadId + '_'));
+      if (!matchFile) {
+        return NextResponse.json({ error: '文件不存在或已过期，请重新上传' }, { status: 400 });
+      }
+      const filePath = pathMod.default.join(uploadsDir, matchFile);
+      const fileBuffer = await fsReadFile(filePath);
+      fileName = matchFile.substring(uploadId.length + 1);
+      fileType = 'application/octet-stream';
+      file = new File([fileBuffer], fileName, { type: fileType });
+      const { unlink } = await import('fs/promises');
+      await unlink(filePath).catch(() => {});
+    } else {
+      // Direct upload mode
+      file = formData.get('file') as File;
+      if (!file) {
+        return NextResponse.json({ error: '请选择文件' }, { status: 400 });
+      }
+      fileName = file.name;
+      fileType = file.type;
 
-    // 检查文件类型
-    if (ALLOWED_TYPES.length > 0 && !ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: '不支持的文件类型' },
-        { status: 400 }
-      );
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: `文件大小超过限制（最大 ${MAX_FILE_SIZE / 1024 / 1024}MB）` },
+          { status: 400 }
+        );
+      }
+
+      if (ALLOWED_TYPES.length > 0 && !ALLOWED_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          { error: '不支持的文件类型' },
+          { status: 400 }
+        );
+      }
     }
 
     // 解析文件
@@ -63,12 +92,12 @@ export async function POST(request: NextRequest) {
     const item = await prisma.knowledgeItem.create({
       data: {
         userId: session.user.id,
-        title: parsed.title || file.name,
+        title: parsed.title || fileName,
         category,
         content: parsed.content || '',
-        tags: JSON.stringify([file.name]),
-        fileType: file.type || 'unknown',
-        fileName: file.name,
+        tags: JSON.stringify([fileName]),
+        fileType: fileType || 'unknown',
+        fileName: fileName,
         source: 'upload',
       },
     });

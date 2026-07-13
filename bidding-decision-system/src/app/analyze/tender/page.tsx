@@ -23,6 +23,8 @@ import { NudgeBanner } from '@/components/popup/nudge-banner';
 const MAX_FILES = 3;
 const MAX_SIZE_MB = 100;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per chunk (well under Vercel's 4.5MB limit)
+const DIRECT_UPLOAD_LIMIT = 3 * 1024 * 1024; // 3MB - files below this upload directly
 const ALLOWED_TYPES = [
   'application/pdf',
   'application/msword',
@@ -150,14 +152,84 @@ export default function TenderAnalyzePage() {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', files[0]);
-      formData.append('projectId', 'tender-upload');
+      const file = files[0];
+      let res: Response;
 
-      const res = await fetch(`/api/analyze${forceReanalyze ? '?force=true' : ''}`, {
-        method: 'POST',
-        body: formData,
-      });
+      if (file.size <= DIRECT_UPLOAD_LIMIT) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('projectId', 'tender-upload');
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000);
+
+        res = await fetch(`/api/analyze${forceReanalyze ? '?force=true' : ''}`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+      } else {
+        // Chunked upload for large files
+        setProgressStage('分片上传中...');
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunkBlob = file.slice(start, end);
+
+          const chunkForm = new FormData();
+          chunkForm.append('uploadId', uploadId);
+          chunkForm.append('chunkIndex', String(i));
+          chunkForm.append('totalChunks', String(totalChunks));
+          chunkForm.append('fileName', file.name);
+          chunkForm.append('fileSize', String(file.size));
+          chunkForm.append('chunk', chunkBlob, file.name);
+
+          setProgressStage(`分片上传中 (${i + 1}/${totalChunks})...`);
+          setProgress(Math.round(((i + 1) / totalChunks) * 30));
+
+          const chunkRes = await fetch('/api/upload/chunk', {
+            method: 'POST',
+            body: chunkForm,
+            credentials: 'same-origin',
+          });
+
+          if (!chunkRes.ok) {
+            const chunkData = await chunkRes.json();
+            throw new Error(chunkData.error || `分片 ${i + 1} 上传失败`);
+          }
+
+          const chunkResult = await chunkRes.json();
+          if (chunkResult.complete) {
+            console.log('[Chunk] All chunks uploaded and assembled');
+          }
+        }
+
+        // Now trigger analysis with uploadId
+        setProgressStage('开始AI分析...');
+        setProgress(35);
+
+        const analyzeForm = new FormData();
+        analyzeForm.append('uploadId', uploadId);
+        analyzeForm.append('projectId', 'tender-upload');
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000);
+
+        res = await fetch(`/api/analyze${forceReanalyze ? '?force=true' : ''}`, {
+          method: 'POST',
+          body: analyzeForm,
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+      }
 
       const data = await res.json();
 
@@ -184,8 +256,16 @@ export default function TenderAnalyzePage() {
           router.push('/projects');
         }
       }, 800);
-    } catch {
-      setError('网络错误，请重试');
+    } catch (err: unknown) {
+      console.error('[Analyze] 请求异常:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION')) {
+        setError('网络连接失败，请检查网络后重试。如果文件较大（>5MB），请稍等片刻再试');
+      } else if (msg.includes('abort') || msg.includes('timeout')) {
+        setError('请求超时，文件过大或网络较慢，请稍后重试');
+      } else {
+        setError('请求失败: ' + msg);
+      }
       setAnalyzing(false);
       setProgress(0);
     }

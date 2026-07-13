@@ -149,6 +149,13 @@ async function parseWord(
   } catch (error) {
     console.error('[Word] 解析错误:', error);
     const errMsg = error instanceof Error ? error.message : String(error);
+    // Provide more specific error messages
+    if (errMsg.includes('encrypted') || errMsg.includes('password')) {
+      return { content: '[Word文件已加密，请解密后重新上传]', tables: [] };
+    }
+    if (errMsg.includes('Zip') || errMsg.includes('end of central directory')) {
+      return { content: '[Word文件格式异常，请确认文件未损坏，或尝试另存为.docx格式后重新上传]', tables: [] };
+    }
     return { content: `[Word解析失败: ${errMsg}]`, tables: [] };
   }
 }

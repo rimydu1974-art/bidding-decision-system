@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '@/components/sidebar';
+import { uploadFileInChunks, formatFileSize } from '@/lib/chunk-upload';
 import {
   FileText,
   Search,
@@ -202,11 +203,25 @@ export default function KnowledgePage() {
     if (!uploadFile) return;
     setUploading(true);
     try {
+      const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || '';
+
+      // Use chunk upload for large files
+      const uploadResult = await uploadFileInChunks(uploadFile, token, (progress) => {
+        console.log(`Knowledge upload: ${progress.percent}%`);
+      });
+
+      if (!uploadResult.complete || !uploadResult.uploadId) {
+        throw new Error('文件上传失败');
+      }
+
+      // Send upload ID to backend
       const formData = new FormData();
-      formData.append('file', uploadFile);
+      formData.append('uploadId', uploadResult.uploadId);
       formData.append('category', uploadCategory);
+
       const response = await fetch('/api/knowledge/upload', {
         method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await response.json();
@@ -220,7 +235,7 @@ export default function KnowledgePage() {
         alert(data.error || '上传失败');
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Upload error', error);
       alert('上传失败');
     } finally {
       setUploading(false);

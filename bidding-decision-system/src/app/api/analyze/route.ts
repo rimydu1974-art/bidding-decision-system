@@ -122,8 +122,40 @@ export async function POST(request: NextRequest) {
     const maxTokens = isPaidUser ? 16000 : 12000;
 
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const uploadId = formData.get('uploadId') as string;
     const projectId = formData.get('projectId') as string;
+
+    let file: File;
+
+    if (uploadId) {
+      // Chunked upload: read assembled file from disk
+      const { readFile: fsReadFile, unlink } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const pathMod = await import('path');
+      const assembledPath = pathMod.default.join(process.cwd(), 'tmp', 'uploads', `${uploadId}_*`);
+
+      // Find the assembled file
+      const { readdir } = await import('fs/promises');
+      const uploadsDir = pathMod.default.join(process.cwd(), 'tmp', 'uploads');
+      if (!existsSync(uploadsDir)) {
+        return NextResponse.json({ error: '文件不存在或已过期' }, { status: 400 });
+      }
+      const files = await readdir(uploadsDir);
+      const matchFile = files.find(f => f.startsWith(uploadId + '_'));
+      if (!matchFile) {
+        return NextResponse.json({ error: '文件不存在或已过期，请重新上传' }, { status: 400 });
+      }
+      const filePath = pathMod.default.join(uploadsDir, matchFile);
+      const fileBuffer = await fsReadFile(filePath);
+      const originalFileName = matchFile.substring(uploadId.length + 1);
+      file = new File([fileBuffer], originalFileName, { type: 'application/octet-stream' });
+
+      // Cleanup temp file after reading
+      await unlink(filePath).catch(() => {});
+      console.log(`[Analyze] 读取分片上传文件: ${originalFileName} (${fileBuffer.length} bytes)`);
+    } else {
+      file = formData.get('file') as File;
+    }
 
     if (!file) {
       return NextResponse.json({ error: '请上传文件' }, { status: 400 });
@@ -232,12 +264,14 @@ export async function POST(request: NextRequest) {
 
     // 检测是否为解析错误信息（如 [Word解析失败: ...]）
     if (/^\[(Word|PDF|Excel)解析(失败|错误)/.test(parsedDoc.content.trim()) ||
-        /^\[.+文件内容为空/.test(parsedDoc.content.trim())) {
+        /^\[.+文件内容为空/.test(parsedDoc.content.trim()) ||
+        /^\[.+(文件格式|已加密|未损坏)/.test(parsedDoc.content.trim())) {
       console.error(`[Analyze] 文件解析失败，错误内容: ${parsedDoc.content.substring(0, 200)}`);
       // 退还预扣的配额
       await refundAiQuota(session.user.id);
+      const detail = parsedDoc.content.replace(/[\[\]]/g, '');
       return NextResponse.json(
-        { error: '文件解析失败，请检查文件是否损坏，或尝试转换为PDF后重新上传' },
+        { error: detail || '文件解析失败，请确认文件未损坏，或尝试转换为PDF后重新上传' },
         { status: 400 }
       );
     }

@@ -74,39 +74,57 @@ export async function POST(request: NextRequest) {
     let projectId: string | null = null;
 
     if (contentType.includes('multipart/form-data')) {
-      // 多文件上传模式
       const formData = await request.formData();
       projectId = formData.get('projectId') as string | null;
       const projectName = formData.get('projectName') as string || '投标文件';
 
-      // 支持两种文件上传模式
       const fileCount = parseInt(formData.get('fileCount') as string) || 0;
-      const files = formData.getAll('files') as File[];
 
-      if (fileCount === 0 && files.length === 0) {
-        return NextResponse.json({ error: '请上传投标文件' }, { status: 400 });
-      }
+      // Check for chunk upload IDs first (uploadId_0, uploadId_1, etc.)
+      const hasChunkUploads = formData.get('uploadId_0') !== null;
 
-      // 解析所有文件
-      if (files.length > 0) {
-        // 新模式：files 数组
-        for (const file of files) {
-          if (file.size > 100 * 1024 * 1024) {
-            return NextResponse.json(
-              { error: `文件 ${file.name} 超过100MB大小限制` },
-              { status: 400 }
-            );
-          }
-          const parsedDoc = await parseFile(file);
-          allContent += `\n\n=== 投标文件: ${file.name} ===\n${parsedDoc.content}`;
-        }
-      } else {
-        // 旧模式：file_${i}
+      if (hasChunkUploads) {
+        // Chunked upload mode - read assembled files from disk
+        const { readFile: fsReadFile, readdir, unlink } = await import('fs/promises');
+        const { existsSync } = await import('fs');
+        const pathMod = await import('path');
+        const uploadsDir = pathMod.default.join(process.cwd(), 'tmp', 'uploads');
+
         for (let i = 0; i < fileCount; i++) {
-          const file = formData.get(`file_${i}`) as File;
+          const uploadId = formData.get(`uploadId_${i}`) as string;
+          const fileName = formData.get(`fileName_${i}`) as string;
           const category = formData.get(`category_${i}`) as string;
 
-          if (file) {
+          if (!uploadId) continue;
+
+          if (!existsSync(uploadsDir)) {
+            return NextResponse.json({ error: '文件不存在或已过期' }, { status: 400 });
+          }
+          const files = await readdir(uploadsDir);
+          const matchFile = files.find(f => f.startsWith(uploadId + '_'));
+          if (!matchFile) {
+            return NextResponse.json({ error: `文件 ${fileName} 不存在或已过期` }, { status: 400 });
+          }
+          const filePath = pathMod.default.join(uploadsDir, matchFile);
+          const fileBuffer = await fsReadFile(filePath);
+          const originalFileName = matchFile.substring(uploadId.length + 1);
+          const file = new File([fileBuffer], originalFileName, { type: 'application/octet-stream' });
+          await unlink(filePath).catch(() => {});
+
+          const parsedDoc = await parseFile(file);
+          const categoryLabel = FILE_CATEGORIES[category] || category || '投标文件';
+          allContent += `\n\n=== ${categoryLabel}: ${originalFileName} ===\n${parsedDoc.content}`;
+        }
+      } else {
+        // Direct upload mode
+        const files = formData.getAll('files') as File[];
+
+        if (fileCount === 0 && files.length === 0) {
+          return NextResponse.json({ error: '请上传投标文件' }, { status: 400 });
+        }
+
+        if (files.length > 0) {
+          for (const file of files) {
             if (file.size > 100 * 1024 * 1024) {
               return NextResponse.json(
                 { error: `文件 ${file.name} 超过100MB大小限制` },
@@ -114,13 +132,28 @@ export async function POST(request: NextRequest) {
               );
             }
             const parsedDoc = await parseFile(file);
-            const categoryLabel = FILE_CATEGORIES[category] || category;
-            allContent += `\n\n=== ${categoryLabel}: ${file.name} ===\n${parsedDoc.content}`;
+            allContent += `\n\n=== 投标文件: ${file.name} ===\n${parsedDoc.content}`;
+          }
+        } else {
+          for (let i = 0; i < fileCount; i++) {
+            const file = formData.get(`file_${i}`) as File;
+            const category = formData.get(`category_${i}`) as string;
+
+            if (file) {
+              if (file.size > 100 * 1024 * 1024) {
+                return NextResponse.json(
+                  { error: `文件 ${file.name} 超过100MB大小限制` },
+                  { status: 400 }
+                );
+              }
+              const parsedDoc = await parseFile(file);
+              const categoryLabel = FILE_CATEGORIES[category] || category;
+              allContent += `\n\n=== ${categoryLabel}: ${file.name} ===\n${parsedDoc.content}`;
+            }
           }
         }
       }
     } else {
-      // JSON模式
       const body = await request.json();
       allContent = body.content || '';
       projectId = body.projectId || null;
