@@ -892,7 +892,8 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     let similarProjects: any[] = [];
     try {
       const searchTerms = [assessment.projectName, assessment.basicInfo?.projectCode].filter(Boolean);
-      const category = assessment.basicInfo?.category || '';
+      const basicInfoAny = assessment.basicInfo as Record<string, any> | undefined;
+      const category = (basicInfoAny?.category as string) || '';
       if (category) searchTerms.push(category);
 
       if (searchTerms.length > 0) {
