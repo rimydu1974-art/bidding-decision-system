@@ -888,7 +888,78 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
 
     await incrementAiUsageForFile(session.user.id, file.name).catch(console.error);
 
-    return NextResponse.json({ assessment: savedAssessment });
+    // 查询类似项目（从知识库中）
+    let similarProjects: any[] = [];
+    try {
+      const searchTerms = [assessment.projectName, assessment.basicInfo?.projectCode].filter(Boolean);
+      const category = assessment.basicInfo?.category || '';
+      if (category) searchTerms.push(category);
+
+      if (searchTerms.length > 0) {
+        // 查询类似的知识库条目
+        const similarKnowledge = await prisma.knowledgeItem.findMany({
+          where: {
+            OR: searchTerms.map(term => ({
+              OR: [
+                { title: { contains: term, mode: 'insensitive' } },
+                { content: { contains: term, mode: 'insensitive' } },
+              ],
+            })),
+          },
+          take: 3,
+          orderBy: { usageCount: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            content: true,
+          },
+        });
+
+        // 查询类似的历史评估
+        const similarAssessments = await prisma.assessment.findMany({
+          where: {
+            OR: searchTerms.map(term => ({
+              projectName: { contains: term, mode: 'insensitive' },
+            })),
+          },
+          take: 3,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            projectName: true,
+            budget: true,
+            riskLevel: true,
+            recommendation: true,
+            createdAt: true,
+          },
+        });
+
+        similarProjects = [
+          ...similarKnowledge.map(k => ({
+            type: 'knowledge',
+            id: k.id,
+            title: k.title,
+            category: k.category,
+            summary: k.content.substring(0, 150) + '...',
+          })),
+          ...similarAssessments.map(a => ({
+            type: 'assessment',
+            id: a.id,
+            title: a.projectName,
+            budget: a.budget,
+            riskLevel: a.riskLevel,
+            recommendation: a.recommendation,
+            createdAt: a.createdAt,
+          })),
+        ];
+      }
+      console.log(`[Analyze] 查询到 ${similarProjects.length} 个类似项目`);
+    } catch (e) {
+      console.error('[Analyze] 查询类似项目失败:', e);
+    }
+
+    return NextResponse.json({ assessment: savedAssessment, similarProjects });
   } catch (error) {
     console.error('[Analyze] 分析错误:', error);
     const errorMessage = error instanceof Error ? error.message : '未知错误';
