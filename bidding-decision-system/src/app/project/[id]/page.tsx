@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/sidebar';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { RiskBadge } from '@/components/ui/risk-badge';
 import { SoftRejectionBanner } from '@/components/ui/soft-rejection-banner';
-import { uploadFileInChunks, formatFileSize, UploadProgress } from '@/lib/chunk-upload';
+import { uploadFileToStorage, formatFileSize, UploadProgress } from '@/lib/chunk-upload';
 import {
   ArrowLeft,
   Download,
@@ -147,46 +147,34 @@ function UploadView({ projectId, projectName }: { projectId: string; projectName
     setProgressPercent(5);
     setAnalysisPhase('upload');
 
-    // Get auth token
-    const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || '';
-
     try {
       let lastAssessmentId: string | null = null;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setProgress(`正在上传第 ${i + 1}/${files.length} 个文件: ${file.name}`);
 
-        // Use chunk upload for all files
-        const uploadResult = await uploadFileInChunks(
+        // Upload to Supabase Storage
+        const uploadResult = await uploadFileToStorage(
           file,
-          token,
           (progress) => {
             setUploadProgress(progress);
             setProgressPercent(Math.round((i / files.length) * 50 + (progress.percent / files.length) * 0.5));
-            if (progress.stage === 'uploading') {
-              setProgress(`正在上传 ${file.name}: ${progress.percent}%`);
-            } else if (progress.stage === 'merging') {
-              setProgress(`正在合并 ${file.name}...`);
-            }
+            setProgress(`正在上传 ${file.name}: ${progress.percent}%`);
           }
         );
 
-        if (!uploadResult.complete || !uploadResult.uploadId) {
+        if (!uploadResult.complete) {
           throw new Error('文件上传失败');
         }
 
         setProgress(`正在分析 ${file.name}...`);
         setProgressPercent(50 + (i / files.length) * 50);
 
-        // Send analyze request with uploadId
+        // Send analyze request with fileUrl
         const formData = new FormData();
-        formData.append('uploadId', uploadResult.uploadId);
+        formData.append('fileUrl', uploadResult.fileUrl);
         formData.append('projectId', projectId);
-        const res = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
+        const res = await fetch('/api/analyze', { method: 'POST', body: formData });
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || '分析失败');

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '@/components/sidebar';
-import { uploadFileInChunks, formatFileSize } from '@/lib/chunk-upload';
+import { uploadFileToStorage, formatFileSize } from '@/lib/chunk-upload';
 import {
   FileText,
   Search,
@@ -186,27 +186,21 @@ export default function MaterialsPage() {
     if (!uploadFile) return;
     setUploading(true);
     try {
-      const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || '';
-
-      // Use chunk upload for large files
-      const uploadResult = await uploadFileInChunks(uploadFile, token, (progress) => {
+      // Upload to Supabase Storage
+      const uploadResult = await uploadFileToStorage(uploadFile, (progress) => {
         console.log(`Material upload: ${progress.percent}%`);
       });
 
-      if (!uploadResult.complete || !uploadResult.uploadId) {
+      if (!uploadResult.complete) {
         throw new Error('文件上传失败');
       }
 
-      // Send upload ID to backend
+      // Send file URL to backend
       const formData = new FormData();
-      formData.append('uploadId', uploadResult.uploadId);
+      formData.append('fileUrl', uploadResult.fileUrl);
       formData.append('category', uploadCategory);
 
-      const response = await fetch('/api/knowledge/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const response = await fetch('/api/knowledge/upload', { method: 'POST', body: formData });
       const data = await response.json();
       if (response.ok) {
         setShowUploadModal(false);

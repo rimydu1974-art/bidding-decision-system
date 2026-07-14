@@ -15,6 +15,7 @@ import { ALL_RULES } from '@/lib/rules/definitions';
 import { trackBehavior } from '@/lib/behavior';
 import { extractAllRules, RuleExtractionResult } from '@/lib/rule-extractors';
 import { extractAllSymbolItems } from '@/lib/rule-extractors/symbol-extractor';
+import { identifyIndustry } from '@/lib/utils/industry-identifier';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,18 +124,28 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const uploadId = formData.get('uploadId') as string;
+    const fileUrl = formData.get('fileUrl') as string;
     const projectId = formData.get('projectId') as string;
 
     let file: File;
 
-    if (uploadId) {
+    if (fileUrl) {
+      // Supabase Storage: download file from URL
+      console.log(`[Analyze] 从Storage下载文件: ${fileUrl}`);
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        return NextResponse.json({ error: '文件下载失败' }, { status: 400 });
+      }
+      const fileBuffer = await response.arrayBuffer();
+      const urlParts = fileUrl.split('/');
+      const originalFileName = decodeURIComponent(urlParts[urlParts.length - 1].replace(/^\d+-\w+-/, ''));
+      file = new File([fileBuffer], originalFileName, { type: response.headers.get('content-type') || 'application/octet-stream' });
+      console.log(`[Analyze] 下载完成: ${originalFileName} (${fileBuffer.byteLength} bytes)`);
+    } else if (uploadId) {
       // Chunked upload: read assembled file from disk
       const { readFile: fsReadFile, unlink } = await import('fs/promises');
       const { existsSync } = await import('fs');
       const pathMod = await import('path');
-      const assembledPath = pathMod.default.join(process.cwd(), 'tmp', 'uploads', `${uploadId}_*`);
-
-      // Find the assembled file
       const { readdir } = await import('fs/promises');
       const uploadsDir = pathMod.default.join(process.cwd(), 'tmp', 'uploads');
       if (!existsSync(uploadsDir)) {
@@ -149,8 +160,6 @@ export async function POST(request: NextRequest) {
       const fileBuffer = await fsReadFile(filePath);
       const originalFileName = matchFile.substring(uploadId.length + 1);
       file = new File([fileBuffer], originalFileName, { type: 'application/octet-stream' });
-
-      // Cleanup temp file after reading
       await unlink(filePath).catch(() => {});
       console.log(`[Analyze] 读取分片上传文件: ${originalFileName} (${fileBuffer.length} bytes)`);
     } else {
@@ -994,7 +1003,47 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       console.error('[Analyze] 查询类似项目失败:', e);
     }
 
-    return NextResponse.json({ assessment: savedAssessment, similarProjects });
+    // 查询行业规则（从 IndustryRule 表）
+    let industryRules: any[] = [];
+    try {
+      const industry = identifyIndustry(assessment.projectName, assessment.basicInfo as Record<string, any>);
+      
+      if (industry) {
+        const rules = await prisma.industryRule.findMany({
+          where: {
+            industry: industry,
+            isActive: true,
+          },
+          take: 10,
+          orderBy: { category: 'asc' },
+          select: {
+            id: true,
+            category: true,
+            title: true,
+            content: true,
+          },
+        });
+        
+        industryRules = rules.map(r => ({
+          id: r.id,
+          category: r.category,
+          title: r.title,
+          content: r.content,
+        }));
+        
+        console.log(`[Analyze] 查询到 ${industryRules.length} 条行业规则 (${industry})`);
+      } else {
+        console.log(`[Analyze] 未识别行业类型，跳过行业规则查询`);
+      }
+    } catch (e) {
+      console.error('[Analyze] 查询行业规则失败:', e);
+    }
+
+    return NextResponse.json({ 
+      assessment: savedAssessment, 
+      similarProjects,
+      industryRules,
+    });
   } catch (error) {
     console.error('[Analyze] 分析错误:', error);
     const errorMessage = error instanceof Error ? error.message : '未知错误';

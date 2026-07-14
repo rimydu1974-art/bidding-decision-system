@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { uploadFileInChunks, formatFileSize } from '@/lib/chunk-upload';
+import { uploadFileToStorage, formatFileSize } from '@/lib/chunk-upload';
 import {
   ArrowLeft,
   FileText,
@@ -84,28 +84,22 @@ export default function ScoringPage() {
 
     setLoading(true);
     try {
-      const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || '';
-
-      // Upload all files using chunk upload
+      // Upload all files using Supabase Storage
       const formData = new FormData();
       for (let i = 0; i < uploadedFiles.length; i++) {
         const item = uploadedFiles[i];
-        const uploadResult = await uploadFileInChunks(item.file, token, (progress) => {
+        const uploadResult = await uploadFileToStorage(item.file, (progress) => {
           console.log(`Upload ${item.file.name}: ${progress.percent}%`);
         });
-        if (uploadResult.complete && uploadResult.uploadId) {
-          formData.append(`uploadId_${i}`, uploadResult.uploadId);
+        if (uploadResult.complete) {
+          formData.append(`fileUrl_${i}`, uploadResult.fileUrl);
           formData.append(`fileName_${i}`, item.file.name);
           formData.append(`category_${i}`, item.category);
         }
       }
       formData.append('fileCount', uploadedFiles.length.toString());
 
-      const scoringResponse = await fetch('/api/scoring', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const scoringResponse = await fetch('/api/scoring', { method: 'POST', body: formData });
 
       if (!scoringResponse.ok) {
         const errorData = await scoringResponse.json();

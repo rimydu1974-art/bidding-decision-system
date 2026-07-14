@@ -1,160 +1,121 @@
-const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB per chunk
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max
-const MAX_RETRIES = 3;
 
 export interface UploadProgress {
   loaded: number;
   total: number;
   percent: number;
-  stage: 'uploading' | 'merging' | 'done';
+  stage: 'uploading' | 'done';
 }
 
-export interface ChunkUploadResult {
+export interface UploadResult {
   complete: boolean;
-  uploadId: string;
+  fileUrl: string;
   fileName: string;
   fileSize: number;
-  filePath?: string;
-  received?: number;
-  total?: number;
 }
 
-function generateUploadId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+export function getAuthToken(): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(/auth-token=([^;]+)/);
+  return match ? match[1] : '';
 }
 
-async function uploadChunk(
-  uploadId: string,
-  chunk: Blob,
-  chunkIndex: number,
-  totalChunks: number,
-  fileName: string,
-  fileSize: number,
-  token: string
-): Promise<ChunkUploadResult> {
-  const formData = new FormData();
-  formData.append('uploadId', uploadId);
-  formData.append('chunkIndex', chunkIndex.toString());
-  formData.append('totalChunks', totalChunks.toString());
-  formData.append('fileName', fileName);
-  formData.append('fileSize', fileSize.toString());
-  formData.append('chunk', chunk);
-
-  const response = await fetch('/api/upload/chunk', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || `分片 ${chunkIndex + 1} 上传失败`);
-  }
-
-  return response.json();
-}
-
-export async function uploadFileInChunks(
+export async function uploadFileToStorage(
   file: File,
-  token: string,
-  onProgress?: (progress: UploadProgress) => void,
-  customChunkSize?: number
-): Promise<ChunkUploadResult> {
+  onProgress?: (progress: UploadProgress) => void
+): Promise<UploadResult> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error('文件大小不能超过100MB');
   }
 
-  // Small file - upload directly as single chunk
-  if (file.size <= CHUNK_SIZE) {
-    onProgress?.({ loaded: 0, total: file.size, percent: 0, stage: 'uploading' });
-    const result = await uploadChunk(
-      generateUploadId(),
-      file,
-      0,
-      1,
-      file.name,
-      file.size,
-      token
-    );
-    onProgress?.({ loaded: file.size, total: file.size, percent: 100, stage: 'done' });
-    return result;
-  }
-
-  const chunkSize = customChunkSize || CHUNK_SIZE;
-  const totalChunks = Math.ceil(file.size / chunkSize);
-  const uploadId = generateUploadId();
-
   onProgress?.({ loaded: 0, total: file.size, percent: 0, stage: 'uploading' });
 
-  // Upload chunks with retry
-  for (let i = 0; i < totalChunks; i++) {
-    const start = i * chunkSize;
-    const end = Math.min(start + chunkSize, file.size);
-    const chunk = file.slice(start, end);
+  const bucket = 'uploads';
+  const filePath = `${Date.now()}-${Math.random().toString(36).substring(2)}-${file.name}`;
 
-    let lastError: Error | null = null;
-    for (let retry = 0; retry < MAX_RETRIES; retry++) {
-      try {
-        const result = await uploadChunk(
-          uploadId,
-          chunk,
-          i,
-          totalChunks,
-          file.name,
-          file.size,
-          token
-        );
+  // Use XMLHttpRequest for progress tracking with Supabase REST API
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-        // Update progress
-        const loaded = Math.min((i + 1) * chunkSize, file.size);
-        onProgress?.({
-          loaded,
-          total: file.size,
-          percent: Math.round((loaded / file.size) * 90), // 0-90% for upload
-          stage: 'uploading',
-        });
-
-        // If complete (all chunks received)
-        if (result.complete) {
-          onProgress?.({
-            loaded: file.size,
-            total: file.size,
-            percent: 100,
-            stage: 'done',
-          });
-          return result;
-        }
-
-        lastError = null;
-        break; // Success, move to next chunk
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`Chunk ${i + 1} retry ${retry + 1}/${MAX_RETRIES}:`, lastError.message);
-        // Wait before retry (exponential backoff)
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (retry + 1)));
-      }
-    }
-
-    if (lastError) {
-      throw new Error(`分片 ${i + 1}/${totalChunks} 上传失败: ${lastError.message}`);
-    }
+  if (!supabaseUrl || !supabaseKey) {
+    // Fallback: upload via our own API endpoint
+    return uploadViaApi(file, onProgress);
   }
 
-  // Should not reach here, but handle edge case
-  return {
-    complete: false,
-    uploadId,
-    fileName: file.name,
-    fileSize: file.size,
-    received: totalChunks,
-    total: totalChunks,
-  };
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadUrl, true);
+    xhr.setRequestHeader('apikey', supabaseKey);
+    xhr.setRequestHeader('Authorization', `Bearer ${supabaseKey}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress?.({
+          loaded: e.loaded,
+          total: e.total,
+          percent: Math.round((e.loaded / e.total) * 100),
+          stage: 'uploading',
+        });
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`;
+        onProgress?.({ loaded: file.size, total: file.size, percent: 100, stage: 'done' });
+        resolve({
+          complete: true,
+          fileUrl: publicUrl,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+      } else {
+        reject(new Error(`Upload failed: ${xhr.statusText}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(file);
+  });
 }
 
-export function getFileExtension(filename: string): string {
-  return filename.split('.').pop() || '';
+async function uploadViaApi(
+  file: File,
+  onProgress?: (progress: UploadProgress) => void
+): Promise<UploadResult> {
+  // Fallback: upload via our own chunk API
+  const CHUNK_SIZE = 4 * 1024 * 1024;
+  const token = getAuthToken();
+
+  if (file.size <= CHUNK_SIZE) {
+    onProgress?.({ loaded: 0, total: file.size, percent: 0, stage: 'uploading' });
+    const formData = new FormData();
+    formData.append('uploadId', `${Date.now()}-${Math.random().toString(36).substring(2)}`);
+    formData.append('chunkIndex', '0');
+    formData.append('totalChunks', '1');
+    formData.append('fileName', file.name);
+    formData.append('fileSize', file.size.toString());
+    formData.append('chunk', file);
+
+    const res = await fetch('/api/upload/chunk', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const data = await res.json();
+    onProgress?.({ loaded: file.size, total: file.size, percent: 100, stage: 'done' });
+    return {
+      complete: data.complete,
+      fileUrl: data.filePath || '',
+      fileName: file.name,
+      fileSize: file.size,
+    };
+  }
+
+  throw new Error('Supabase Storage not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
 export function formatFileSize(bytes: number): string {

@@ -34,13 +34,25 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const uploadId = formData.get('uploadId') as string;
+    const fileUrl = formData.get('fileUrl') as string;
     const category = (formData.get('category') as string) || '其他';
 
     let file: File;
     let fileName: string;
     let fileType: string;
 
-    if (uploadId) {
+    if (fileUrl) {
+      // Supabase Storage: download from URL
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        return NextResponse.json({ error: '文件下载失败' }, { status: 400 });
+      }
+      const fileBuffer = await response.arrayBuffer();
+      const urlParts = fileUrl.split('/');
+      fileName = decodeURIComponent(urlParts[urlParts.length - 1].replace(/^\d+-\w+-/, ''));
+      fileType = response.headers.get('content-type') || 'application/octet-stream';
+      file = new File([fileBuffer], fileName, { type: fileType });
+    } else if (uploadId) {
       // Chunked upload - read assembled file from disk
       const { readFile: fsReadFile, readdir } = await import('fs/promises');
       const { existsSync } = await import('fs');
