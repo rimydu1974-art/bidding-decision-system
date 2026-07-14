@@ -18,6 +18,7 @@ import {
   Bell,
   Check,
   CheckCheck,
+  Upload,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
@@ -25,6 +26,7 @@ const adminNav = [
   { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
   { href: '/admin/users', label: '用户管理', icon: Users },
   { href: '/admin/orders', label: '订单管理', icon: ShoppingCart },
+  { href: '/admin/import', label: '数据导入', icon: Upload },
   { href: '/admin/ai-cost', label: 'AI成本', icon: Cpu },
   { href: '/admin/behavior', label: '行为漏斗', icon: Activity },
   { href: '/admin/analytics', label: '行业统计', icon: BarChart3 },
