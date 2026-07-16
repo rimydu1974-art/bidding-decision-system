@@ -316,8 +316,9 @@ export async function POST(request: NextRequest) {
 
     // 查询行业规则（从 IndustryRule 表）- 在 prompt 构建前执行
     let industryRulesText = '';
+    let identifiedIndustry: string | null = null;
     try {
-      const identifiedIndustry = identifyIndustry(parsedDoc.title, { content: parsedDoc.content.substring(0, 2000) });
+      identifiedIndustry = identifyIndustry(parsedDoc.title, { content: parsedDoc.content.substring(0, 2000) });
       
       if (identifiedIndustry) {
         const industryRules = await prisma.industryRule.findMany({
@@ -399,10 +400,54 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       console.error('[Analyze] 获取用户画像失败:', e);
     }
 
-    // 在prompt中插入控标参考规则库、行业规则、用户画像和规则提取结果
+    // 查询知识库中的相关专业知识（废标陷阱、暗标技巧、评标经验等）
+    let knowledgeRefText = '';
+    try {
+      const searchKeywords = [parsedDoc.title];
+      if (identifiedIndustry) searchKeywords.push(identifiedIndustry);
+      // 从文档内容提取关键词
+      const contentKeywords = parsedDoc.content.substring(0, 3000).match(/[\u4e00-\u9fa5]{2,6}/g) || [];
+      searchKeywords.push(...contentKeywords.slice(0, 10));
+      
+      if (searchKeywords.length > 0) {
+        const knowledgeItems = await prisma.knowledgeItem.findMany({
+          where: {
+            OR: searchKeywords.map(keyword => ({
+              OR: [
+                { title: { contains: keyword, mode: 'insensitive' } },
+                { content: { contains: keyword, mode: 'insensitive' } },
+                { category: { contains: keyword, mode: 'insensitive' } },
+              ],
+            })),
+          },
+          take: 15,
+          orderBy: { usageCount: 'desc' },
+          select: {
+            title: true,
+            content: true,
+            category: true,
+          },
+        });
+        
+        if (knowledgeItems.length > 0) {
+          knowledgeRefText = `\n\n## 参考知识（来自知识库的投标专业知识和经验教训，共${knowledgeItems.length}条，请在分析风险、提供建议、评分预测时参考）
+${knowledgeItems.map((k, i) => `${i + 1}. [${k.category}] ${k.title}：${k.content.substring(0, 300)}`).join('\n')}
+
+请在分析时参考以上知识库内容，特别是：
+- 废标风险识别时，参考历史废标案例和常见陷阱
+- 给出建议时，参考专家经验和最佳实践
+- 评分预测时，参考评标专家的打分偏好`;
+          console.log(`[Analyze] 注入 ${knowledgeItems.length} 条知识库参考`);
+        }
+      }
+    } catch (e) {
+      console.error('[Analyze] 查询知识库失败:', e);
+    }
+
+    // 在prompt中插入控标参考规则库、行业规则、用户画像、知识库参考和规则提取结果
     let promptWithRules = TENDER_ANALYSIS_PROMPT.replace(
       '## 招标文件内容',
-      rulesRef + industryRulesText + (userProfileText ? '\n\n' + userProfileText : '') + '\n\n' + ruleExtractionRef + '\n\n## 招标文件内容'
+      rulesRef + industryRulesText + knowledgeRefText + (userProfileText ? '\n\n' + userProfileText : '') + '\n\n' + ruleExtractionRef + '\n\n## 招标文件内容'
     );
     let embeddedDocContent = truncatedContent;
     let finalPrompt = promptWithRules.replace('{document_content}', embeddedDocContent);
@@ -416,13 +461,15 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
 
     if (finalPrompt.length > promptCharBudget) {
       console.warn(`[Analyze] Prompt超预算! ${finalPrompt.length} > ${promptCharBudget}, 自动精简`);
-      // 策略：去掉规则提取结果（最占空间），只保留核心prompt + 控标规则 + 评分摘要 + 文档
+      // 策略：去掉规则提取结果和知识库（最占空间），只保留核心prompt + 控标规则 + 评分摘要 + 文档
       const scoringSummary = ruleResult.scoring.length > 0
         ? '\n\n## 已提取的评分数字\n' + ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n')
         : '';
+      // 精简版知识库：只保留前5条
+      const slimKnowledge = knowledgeRefText ? knowledgeRefText.split('\n').slice(0, 12).join('\n') + '\n[...知识库已精简]' : '';
       const slimPrompt = TENDER_ANALYSIS_PROMPT.replace(
         '## 招标文件内容',
-        rulesRef + scoringSummary + '\n\n## 招标文件内容'
+        rulesRef + slimKnowledge + scoringSummary + '\n\n## 招标文件内容'
       );
       let slimDoc = embeddedDocContent;
       let slimFinal = slimPrompt.replace('{document_content}', slimDoc);
@@ -575,6 +622,32 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     }
 
     const _sources = analysisResult._sources || {};
+
+    // Create section-specific _source objects
+    const basicInfoSource: Record<string, string> = {};
+    const basicInfoKeys = ['项目名称', '项目编号', '招标企业', '招标联系人', '联系电话', '代理机构', '信息来源', 'CA需求', '开标方式', '开标地点', '如何报名/获取招标文件', '项目地点'];
+    basicInfoKeys.forEach(k => { if (_sources[k]) basicInfoSource[k] = _sources[k]; });
+
+    const finSource: Record<string, string> = {};
+    const finKeys = ['资金来源', '预算金额(元)', '最高限价(元)', '需要预先投资金额', '付款方式', '标书费', '投标保证金', '履约保证金', '质量保证金', '保密保证金', '代理费'];
+    finKeys.forEach(k => { if (_sources[k]) finSource[k] = _sources[k]; });
+
+    const qualSource: Record<string, string> = {};
+    const qualKeys = ['联合体投标', '分包转包', '企业规模要求', '特别资质', '特别人员要求', '特别说明', '政策优惠', '资格性审查', '符合性审查', '信用要求'];
+    qualKeys.forEach(k => { if (_sources[k]) qualSource[k] = _sources[k]; });
+
+    const scoreSource: Record<string, string> = {};
+    const scoreKeys = ['总分', '价格分', '商务分', '技术分', '中标方式', '评标方式', '客观分/主观分比例', '废标说明', '评分特别要求', '要求企业资质证书', '要求人员资质证书', '要求产品检测报告', '商务分评审明细', '技术分评审明细'];
+    scoreKeys.forEach(k => { if (_sources[k]) scoreSource[k] = _sources[k]; });
+
+    const timeSource: Record<string, string> = {};
+    const timeKeys = ['获取招标文件截止时间', '标前提问截止时间', '开标时间', '中标交货时间/项目实施期', '合同履约期限'];
+    timeKeys.forEach(k => { if (_sources[k]) timeSource[k] = _sources[k]; });
+
+    const projSource: Record<string, string> = {};
+    const projKeys = ['▲★※要求', '偏离▲★※的结果', '图纸提供情况', '图纸深度要求', '图纸清单', '现场踏勘', '踏勘需要确认问题', '控标点', '商务需求', '技术需求（技术参数）', '核心服务需求', '项目成果要求', '最终交付', '项目特别提到点', '正本副本', '报价文件提交标记', '密封包装盖章要求', '签字要求', '验收要求'];
+    projKeys.forEach(k => { if (_sources[k]) projSource[k] = _sources[k]; });
+
     const assessment = {
       id: generateId(),
       projectId: generateId(),
@@ -598,7 +671,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         bidOpeningLocation: analysisResult.basicInfo?.bidOpeningLocation || '',
         registrationMethod: analysisResult.basicInfo?.registrationMethod || '',
         location: analysisResult.basicInfo?.location || '',
-        _source: _sources,
+        _source: basicInfoSource,
       },
       financialInfo: {
         fundingSource: analysisResult.financialInfo?.fundingSource || '',
@@ -612,7 +685,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         qualityBond: Number(analysisResult.financialInfo?.qualityBond) || 0,
         confidentialityBond: Number(analysisResult.financialInfo?.confidentialityBond) || 0,
         agencyFee: Number(analysisResult.financialInfo?.agencyFee) || 0,
-        _source: _sources,
+        _source: finSource,
       },
       qualificationRequirements: (analysisResult.qualificationRequirements || []).map(
         (q: Record<string, unknown>) => ({
@@ -631,7 +704,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
           qualificationReview: q.qualificationReview || '',
           complianceReview: q.complianceReview || '',
           creditRequirements: q.creditRequirements || '',
-          _source: _sources,
+          _source: qualSource,
         })
       ),
       scoringRules: {
@@ -660,10 +733,10 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
             maxScore: Number(item.maxScore) || 0,
             description: item.description || '',
             calculationMethod: item.calculationMethod || '',
-            _source: _sources,
+            _source: scoreSource,
           })
         ),
-        _source: _sources,
+        _source: scoreSource,
       },
       timeRequirements: {
         documentAcquisitionDeadline: analysisResult.timeRequirements?.documentAcquisitionDeadline || '',
@@ -671,7 +744,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         bidOpeningTime: analysisResult.timeRequirements?.bidOpeningTime || '',
         winningDeliveryTime: analysisResult.timeRequirements?.winningDeliveryTime || '',
         contractPerformancePeriod: analysisResult.timeRequirements?.contractPerformancePeriod || '',
-        _source: _sources,
+        _source: timeSource,
       },
       projectInfo: {
         substantialRequirements: analysisResult.projectInfo?.substantialRequirements || '',
@@ -698,7 +771,7 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
         voidBidConditions: ruleResult.voidBid.conditions.map(c => c.condition).join('\n'),
         qualificationReviewItems: ruleResult.voidBid.summary.qualificationItems.join('\n'),
         complianceReviewItems: ruleResult.voidBid.summary.complianceItems.join('\n'),
-        _source: _sources,
+        _source: projSource,
       },
       phoneQuestions: (analysisResult.phoneQuestions || []).map(
         (q: Record<string, unknown>) => ({

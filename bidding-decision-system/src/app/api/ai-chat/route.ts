@@ -100,10 +100,50 @@ export async function POST(request: NextRequest) {
       console.error('[AiChat] 获取用户画像失败:', e);
     }
 
+    // 查询知识库（仅Pro/企业版用户）
+    let knowledgeContext = '';
+    if (isPro || isEnterprise) {
+      try {
+        // 从用户最后一条消息提取关键词
+        const lastMessage = messages[messages.length - 1]?.content || '';
+        const keywords = lastMessage.match(/[\u4e00-\u9fa5]{2,6}/g) || [];
+        
+        if (keywords.length > 0) {
+          const knowledgeItems = await prisma.knowledgeItem.findMany({
+            where: {
+              OR: keywords.slice(0, 8).map((keyword: string) => ({
+                OR: [
+                  { title: { contains: keyword, mode: 'insensitive' } },
+                  { content: { contains: keyword, mode: 'insensitive' } },
+                ],
+              })),
+            },
+            take: 8,
+            orderBy: { usageCount: 'desc' },
+            select: {
+              title: true,
+              content: true,
+              category: true,
+            },
+          });
+          
+          if (knowledgeItems.length > 0) {
+            knowledgeContext = `\n\n## 参考知识（来自投标知识库，共${knowledgeItems.length}条）
+${knowledgeItems.map((k, i) => `${i + 1}. [${k.category}] ${k.title}：${k.content.substring(0, 200)}`).join('\n')}
+
+请优先参考以上知识库内容回答用户问题。如果知识库没有相关信息，再用你自身的知识回答。`;
+            console.log(`[AiChat] 注入 ${knowledgeItems.length} 条知识库参考`);
+          }
+        }
+      } catch (e) {
+        console.error('[AiChat] 查询知识库失败:', e);
+      }
+    }
+
     // 构建消息
     const systemMessage = {
       role: 'system' as const,
-      content: SYSTEM_PROMPT + projectContext + userProfileContext
+      content: SYSTEM_PROMPT + knowledgeContext + projectContext + userProfileContext
     };
 
     const apiMessages = [systemMessage, ...messages.slice(-10)]; // 只保留最近10条消息

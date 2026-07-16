@@ -183,7 +183,6 @@ export async function POST(request: NextRequest) {
     addRow('图纸清单', proj['图纸清单'] || proj.drawingList || '-', pS('图纸清单'));
     addRow('现场踏勘', proj['现场踏勘'] || proj.siteSurveyRequired || '-', pS('现场踏勘'));
     addRow('踏勘需要确认问题', proj['踏勘需要确认问题'] || proj.siteSurveyConfirmation || '-', pS('踏勘需要确认问题'));
-    addRow('控标点', proj['控标点'] || proj.controlPoints || '-', pS('控标点'));
     addRow('商务需求', proj['商务需求'] || proj.businessRequirements || '-', pS('商务需求'));
     addRow('技术需求（技术参数）', proj['技术需求（技术参数）'] || proj.technicalRequirements || '-', pS('技术需求（技术参数）'));
     addRow('核心服务需求', proj['核心服务需求'] || proj.coreServiceRequirements || '-', pS('核心服务需求'));
@@ -210,7 +209,10 @@ export async function POST(request: NextRequest) {
         addRow('2、风险清单', addCircleNumbers(risks.map((r: any) => r.description || r.title || '').join('；')), '');
       }
       if (prepTasks.length > 0) {
-        addRow('3、准备分工', addCircleNumbers(prepTasks.map((t: any) => `${t.category || ''}${(t.items || []).join('、')}`).join('；')), '');
+        prepTasks.forEach((t: any, idx: number) => {
+          const items = (t.items || []).join('\n');
+          addRow(`${idx + 1}、${t.category || ''}`, items || '-', '');
+        });
       }
       const recLabel: Record<string, string> = { bid: '建议投标', 'no-bid': '不建议投标', caution: '谨慎投标' };
       addRow('4、投标建议', `${recLabel[data.recommendation || 'caution'] || '谨慎投标'}；${(data.reasons || []).join('；')}`, '');
