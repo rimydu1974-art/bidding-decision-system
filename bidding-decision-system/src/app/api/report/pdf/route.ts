@@ -160,18 +160,17 @@ export async function POST(request: NextRequest) {
     doc.setFillColor(...colors.brandCyan);
     doc.rect(0, 5, pageWidth, 2, 'F');
 
-    let currentY = 55;
-    doc.setFontSize(30);
-    doc.setTextColor(...colors.brandPurple);
-    doc.setFont('SimHei', 'bold');
-    doc.text('OpenCheck', pageWidth / 2, currentY, { align: 'center' });
-    currentY += 13;
-    doc.setFontSize(11);
-    doc.setTextColor(139, 155, 180);
-    doc.setFont('SimHei', 'normal');
-    doc.text('BID DECISION OS', pageWidth / 2, currentY, { align: 'center' });
+    // Add OpenCheck logo
+    const logoPath = join(process.cwd(), 'public', 'opencheck-logo.png');
+    if (existsSync(logoPath)) {
+      const logoBuffer = readFileSync(logoPath);
+      const logoBase64 = logoBuffer.toString('base64');
+      const logoWidth = 80;
+      const logoHeight = 24;
+      doc.addImage(logoBase64, 'PNG', pageWidth / 2 - logoWidth / 2, 35, logoWidth, logoHeight);
+    }
 
-    currentY += 28;
+    let currentY = 70;
     doc.setFontSize(24);
     doc.setTextColor(...colors.black);
     doc.setFont('SimHei', 'bold');
