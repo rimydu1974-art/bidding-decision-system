@@ -70,16 +70,21 @@ const addCircleNumbers = (text: string): string => {
   if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
   const parts = text.split(/[；;]\s*|\n\s*/).filter(p => p.trim().length > 0);
   if (parts.length <= 1) return text;
-  return parts.map((p, i) => (CIRCLE[i] || `${i+1}.`) + p).join(' ');
+  return parts.map((p, i) => (CIRCLE[i] || `${i+1}.`) + p).join('\n');
 };
 
 const formatNumberedItems = (text: string): string => {
   if (!text || text === '-') return text;
-  const hasNumberedPattern = /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
-    /\d+[.、）)]\s*/.test(text) || /[•●■◆▪]\s*/.test(text);
+  // If text already has circle numbers with newlines, keep as is
+  if (/\n[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
+  // If text has circle numbers without newlines, add newlines
+  if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) {
+    return text.replace(/([①②③④⑤⑥⑦⑧⑨⑩])/g, '\n$1').replace(/\n{2,}/g, '\n').trim();
+  }
+  // Handle other numbering patterns
+  const hasNumberedPattern = /\d+[.、）)]\s*/.test(text) || /[•●■◆▪]\s*/.test(text);
   if (!hasNumberedPattern) return text;
   let formatted = text
-    .replace(/([①②③④⑤⑥⑦⑧⑨⑩])/g, '\n$1')
     .replace(/(\d+[.、）)])\s*/g, '\n$1')
     .replace(/([•●■◆▪])\s*/g, '\n$1')
     .replace(/\n{2,}/g, '\n')
@@ -433,10 +438,10 @@ export async function POST(request: NextRequest) {
       body: body as any,
       margin: { left: margin, right: margin },
       columnStyles: {
-        0: { cellWidth: 12 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 115 },
-        3: { cellWidth: 52 },
+        0: { cellWidth: 12 },   // 编号
+        1: { cellWidth: 32 },   // 字段名称
+        2: { cellWidth: 170 },  // 项目数据（占满剩余空间）
+        3: { cellWidth: 59 },   // 来源定位
       },
       styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', font: 'SimHei', lineHeight: 1.4 } as any,
       headStyles: { fillColor: colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 8 } as any,

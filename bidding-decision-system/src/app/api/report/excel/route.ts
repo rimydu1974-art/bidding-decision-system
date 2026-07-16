@@ -9,7 +9,7 @@ const addCircleNumbers = (text: string): string => {
   if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
   const parts = text.split(/[；;]\s*|\n\s*/).filter(p => p.trim().length > 0);
   if (parts.length <= 1) return text;
-  return parts.map((p, i) => (CIRCLE[i] || `${i+1}.`) + p).join(' ');
+  return parts.map((p, i) => (CIRCLE[i] || `${i+1}.`) + p).join('\n');
 };
 
 export async function POST(request: NextRequest) {
