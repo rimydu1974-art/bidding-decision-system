@@ -42,9 +42,53 @@ async function getChineseFontBase64(): Promise<string> {
   throw new Error('未找到中文字体文件。请将 simhei.ttf 放置在 public/fonts/ 目录下');
 }
 
+const CIRCLE = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+
+const formatSource = (raw: string): string => {
+  if (!raw || raw === '招标文件' || raw === '来源未定位') return '';
+  if (raw.includes('\uFF5C')) return raw;
+  if (raw.startsWith('章节\uFF1A') || raw.startsWith('章节:')) {
+    const pdfMatch = raw.match(/PDF第(\d+)页/);
+    const textMatch = raw.match(/正文第(\d+)页/);
+    const quoteMatch = raw.match(/引用原文[：:]"([^"]+)"/);
+    const chapterMatch = raw.match(/章节[：:]([^；;]+)/);
+    const parts: string[] = ['招标文件'];
+    if (pdfMatch) parts.push(`系统第${pdfMatch[1]}页`);
+    if (textMatch) parts.push(`正文页码第${textMatch[1]}页`);
+    if (chapterMatch) parts.push(chapterMatch[1].trim());
+    let result = parts.join('\uFF5C');
+    if (quoteMatch) {
+      result += `\uFF5C引用原文："${quoteMatch[1]}"`;
+    }
+    return result;
+  }
+  return raw.length > 60 ? raw.substring(0, 60) + '...' : raw;
+};
+
+const addCircleNumbers = (text: string): string => {
+  if (!text || text === '-') return text;
+  if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
+  const parts = text.split(/[；;]\s*|\n\s*/).filter(p => p.trim().length > 0);
+  if (parts.length <= 1) return text;
+  return parts.map((p, i) => (CIRCLE[i] || `${i+1}.`) + p).join(' ');
+};
+
+const formatNumberedItems = (text: string): string => {
+  if (!text || text === '-') return text;
+  const hasNumberedPattern = /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
+    /\d+[.、）)]\s*/.test(text) || /[•●■◆▪]\s*/.test(text);
+  if (!hasNumberedPattern) return text;
+  let formatted = text
+    .replace(/([①②③④⑤⑥⑦⑧⑨⑩])/g, '\n$1')
+    .replace(/(\d+[.、）)])\s*/g, '\n$1')
+    .replace(/([•●■◆▪])\s*/g, '\n$1')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+  return formatted;
+};
+
 export async function POST(request: NextRequest) {
   try {
-    // 服务端验证导出权限
     const token = getTokenFromRequest(request);
     if (token) {
       const session = await validateSession(token);
@@ -60,7 +104,6 @@ export async function POST(request: NextRequest) {
 
     const reqBody = await request.json();
     let data = reqBody.assessment || reqBody;
-    // Merge aiResult sub-fields as fallback (financialInfo, timeRequirements, projectInfo etc. live only in aiResult)
     const aiResult = typeof data.aiResult === 'string' ? JSON.parse(data.aiResult) : (data.aiResult || {});
     data = {
       ...data,
@@ -70,7 +113,7 @@ export async function POST(request: NextRequest) {
       qualificationRequirements: data.qualificationRequirements || data.qualificationReqs || aiResult.qualificationRequirements || [],
       phoneQuestions: data.phoneQuestions || aiResult.phoneQuestions || [],
       risks: data.risks || aiResult.risks || [],
-      checklist: data.checklist || aiResult.checklist || [],
+      preparationTasks: data.preparationTasks || aiResult.preparationTasks || [],
       _sources: data._sources || aiResult._sources || {},
     };
     const isPaid = reqBody.isPaid || false;
@@ -98,26 +141,21 @@ export async function POST(request: NextRequest) {
       header4: [39, 174, 96] as [number, number, number],
       header5: [155, 89, 182] as [number, number, number],
       header6: [230, 126, 34] as [number, number, number],
-      header7: [22, 160, 133] as [number, number, number],
       danger: [231, 76, 60] as [number, number, number],
       success: [39, 174, 96] as [number, number, number],
       warning: [243, 156, 18] as [number, number, number],
-      light: [245, 245, 245] as [number, number, number],
       white: [255, 255, 255] as [number, number, number],
       black: [51, 51, 51] as [number, number, number],
       gray: [128, 128, 128] as [number, number, number],
     };
 
-    // 封面页 - 顶部装饰条
+    // Cover page
     doc.setFillColor(...colors.brandPurple);
     doc.rect(0, 0, pageWidth, 5, 'F');
     doc.setFillColor(...colors.brandCyan);
     doc.rect(0, 5, pageWidth, 2, 'F');
 
-    // 封面内容 - 垂直居中布局
-    const coverStartY = 55;
-    let currentY = coverStartY;
-
+    let currentY = 55;
     doc.setFontSize(30);
     doc.setTextColor(...colors.brandPurple);
     doc.setFont('SimHei', 'bold');
@@ -132,26 +170,28 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(24);
     doc.setTextColor(...colors.black);
     doc.setFont('SimHei', 'bold');
-    doc.text('投标决策评估报告', pageWidth / 2, currentY, { align: 'center' });
+    doc.text('\u6295\u6807\u51B3\u7B56\u8BC4\u4F30\u62A5\u544A', pageWidth / 2, currentY, { align: 'center' });
 
     currentY += 20;
     doc.setFontSize(12);
     doc.setTextColor(...colors.gray);
     doc.setFont('SimHei', 'normal');
-    doc.text(`项目名称：${data.basicInfo?.projectName || data.projectName || '-'}`, pageWidth / 2, currentY, { align: 'center' });
+    const projectName = data.basicInfo?.['\u9879\u76EE\u540D\u79F0'] || data.basicInfo?.projectName || data.projectName || '-';
+    doc.text(`\u9879\u76EE\u540D\u79F0\uFF1A${projectName}`, pageWidth / 2, currentY, { align: 'center' });
     currentY += 9;
-    doc.text(`项目编号：${data.basicInfo?.projectCode || '-'}`, pageWidth / 2, currentY, { align: 'center' });
+    const projectCode = data.basicInfo?.['\u9879\u76EE\u7F16\u53F7'] || data.basicInfo?.projectCode || '-';
+    doc.text(`\u9879\u76EE\u7F16\u53F7\uFF1A${projectCode}`, pageWidth / 2, currentY, { align: 'center' });
     currentY += 9;
-    const budget = data.financialInfo?.budget;
-    doc.text(`预算金额：${budget ? `¥${Number(budget).toLocaleString()}` : '-'}`, pageWidth / 2, currentY, { align: 'center' });
+    const budget = data.financialInfo?.['\u9884\u7B97\u91D1\u989D(\u5143)'] || data.financialInfo?.budget;
+    doc.text(`\u9884\u7B97\u91D1\u989D\uFF1A${budget ? `\u00A5${Number(budget).toLocaleString()}` : '-'}`, pageWidth / 2, currentY, { align: 'center' });
     currentY += 9;
-    doc.text(`生成时间：${new Date().toLocaleString('zh-CN')}`, pageWidth / 2, currentY, { align: 'center' });
+    doc.text(`\u751F\u6210\u65F6\u95F4\uFF1A${new Date().toLocaleString('zh-CN')}`, pageWidth / 2, currentY, { align: 'center' });
 
     const riskLevelMap: Record<string, { text: string; color: [number, number, number] }> = {
-      critical: { text: '高风险', color: colors.danger },
-      high: { text: '较高风险', color: colors.warning },
-      medium: { text: '中等风险', color: [243, 156, 18] as [number, number, number] },
-      low: { text: '低风险', color: colors.success },
+      critical: { text: '\u9AD8\u98CE\u9669', color: colors.danger },
+      high: { text: '\u8F83\u9AD8\u98CE\u9669', color: colors.warning },
+      medium: { text: '\u4E2D\u7B49\u98CE\u9669', color: [243, 156, 18] as [number, number, number] },
+      low: { text: '\u4F4E\u98CE\u9669', color: colors.success },
     };
     const riskInfo = riskLevelMap[data.riskLevel || 'medium'] || riskLevelMap.medium;
     currentY += 18;
@@ -165,9 +205,9 @@ export async function POST(request: NextRequest) {
     doc.setFont('SimHei', 'normal');
 
     const recMap: Record<string, { text: string; color: [number, number, number] }> = {
-      bid: { text: '建议投标', color: colors.success },
-      caution: { text: '谨慎投标', color: colors.warning },
-      'no-bid': { text: '不建议投标', color: colors.danger },
+      bid: { text: '\u5EFA\u8BAE\u6295\u6807', color: colors.success },
+      caution: { text: '\u8C28\u614E\u6295\u6807', color: colors.warning },
+      'no-bid': { text: '\u4E0D\u5EFA\u8BAE\u6295\u6807', color: colors.danger },
     };
     const recInfo = recMap[data.recommendation] || recMap.caution;
     currentY += 16;
@@ -179,47 +219,24 @@ export async function POST(request: NextRequest) {
     doc.text(recInfo.text, pageWidth / 2, currentY + 1.5, { align: 'center' });
     doc.setFont('SimHei', 'normal');
 
-    // 封面页 - 底部装饰条
     doc.setFillColor(...colors.brandPurple);
     doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     doc.setFillColor(...colors.brandCyan);
     doc.rect(0, pageHeight - 7, pageWidth, 2, 'F');
 
-    // 来源格式化 - 紧凑格式B
-    const formatSource = (raw: string): string => {
-      if (!raw || raw === '招标文件' || raw === '评分标准' || raw === '废标条款' || raw === '来源未定位') return '';
-      if (raw.startsWith('章节：') || raw.startsWith('章节:')) {
-        const pdfMatch = raw.match(/PDF第(\d+)页/);
-        const textMatch = raw.match(/正文第(\d+)页/);
-        const quoteMatch = raw.match(/引用原文[：:]"([^"]+)"/);
-        const chapterMatch = raw.match(/章节[：:]([^；;]+)/);
-        const parts: string[] = [];
-        if (chapterMatch) parts.push(chapterMatch[1].trim());
-        if (textMatch) parts.push(`P${textMatch[1]}`);
-        if (pdfMatch) parts.push(`PDF${pdfMatch[1]}`);
-        let result = parts.length > 0 ? `[${parts.join('/')}]` : '';
-        if (quoteMatch) {
-          const quote = quoteMatch[1].substring(0, 40);
-          result += ` 摘自：${quote}${quoteMatch[1].length > 40 ? '...' : ''}`;
-        }
-        return result;
-      }
-      return raw.length > 50 ? raw.substring(0, 50) + '...' : raw;
-    };
-
-    // ==================== 构建5列表格数据 ====================
-    type TableRow = { no: string; fieldName: string; keyPoint: string; detail: string; source: string; isSeparator?: boolean; separatorColor?: [number, number, number]; isCritical?: boolean };
+    // ==================== Build 4-column table rows ====================
+    type TableRow = { no: string; fieldName: string; data: string; source: string; isSeparator?: boolean; separatorColor?: [number, number, number]; isCritical?: boolean };
 
     const rows: TableRow[] = [];
     let rowNum = 0;
 
     const addSeparator = (title: string, color: [number, number, number]) => {
-      rows.push({ no: '', fieldName: '', keyPoint: title, detail: '', source: '', isSeparator: true, separatorColor: color });
+      rows.push({ no: '', fieldName: '', data: title, source: '', isSeparator: true, separatorColor: color });
     };
 
-    const addRow = (fieldName: string, keyPoint: string, detail: string = '', source: string = '', isCritical: boolean = false) => {
+    const addRow = (fieldName: string, data: string, source: string = '', isCritical: boolean = false) => {
       rowNum++;
-      rows.push({ no: String(rowNum), fieldName, keyPoint, detail, source, isCritical });
+      rows.push({ no: String(rowNum), fieldName, data, source, isCritical });
     };
 
     const getS = (section: any, key: string): string => {
@@ -227,239 +244,187 @@ export async function POST(request: NextRequest) {
       if (!src || typeof src !== 'object') return '';
       if (src[key]) return formatSource(src[key]);
       for (const v of Object.values(src)) {
-        if (typeof v === 'string' && (v.includes('PDF第') || v.includes('第') && v.includes('页'))) return formatSource(v);
+        if (typeof v === 'string' && (v.includes('\u7CFB\u7EDF\u7B2C') || (v.includes('\u7B2C') && v.includes('\u9875')))) return formatSource(v);
       }
       return '';
     };
 
-    // ==================== 第1类：基本信息 ====================
-    addSeparator('第1类：基本信息', colors.header1);
+    // ==================== Category 1: Basic Info ====================
+    addSeparator('\u7B2C\u4E00\u7C7B\uFF1A\u57FA\u672C\u4FE1\u606F', colors.header1);
     const basicInfo = data.basicInfo || {};
-    addRow('项目名称', basicInfo.projectName || data.projectName || '-', '', getS(basicInfo, 'projectName'));
-    addRow('项目编号', basicInfo.projectCode || '-', '', getS(basicInfo, 'projectCode'));
-    addRow('招标企业', basicInfo.tenderer || '-', '', getS(basicInfo, 'tenderer'));
-    addRow('招标联系人', basicInfo.contactPerson || '-', basicInfo.contactPhone || '', getS(basicInfo, 'contactPerson'));
-    addRow('代理机构', basicInfo.agency || '-', '', getS(basicInfo, 'agency'));
-    addRow('信息来源', basicInfo.informationSource || '-', '', getS(basicInfo, 'informationSource'));
-    addRow('CA需求', basicInfo.caRequirement || '-', '', getS(basicInfo, 'caRequirement'));
-    addRow('开标方式', basicInfo.bidOpeningMethod || '-', '', getS(basicInfo, 'bidOpeningMethod'));
-    addRow('开标地点', basicInfo.bidOpeningLocation || '-', '', getS(basicInfo, 'bidOpeningLocation'));
-    addRow('报名方式', basicInfo.registrationMethod || '-', '', getS(basicInfo, 'registrationMethod'));
-    addRow('项目地点', basicInfo.location || '-', '', getS(basicInfo, 'location'));
+    addRow('\u9879\u76EE\u540D\u79F0', basicInfo['\u9879\u76EE\u540D\u79F0'] || basicInfo.projectName || '-', getS(basicInfo, '\u9879\u76EE\u540D\u79F0'));
+    addRow('\u9879\u76EE\u7F16\u53F7', basicInfo['\u9879\u76EE\u7F16\u53F7'] || basicInfo.projectCode || '-', getS(basicInfo, '\u9879\u76EE\u7F16\u53F7'));
+    addRow('\u62DB\u6807\u4F01\u4E1A', basicInfo['\u62DB\u6807\u4F01\u4E1A'] || basicInfo.tenderer || '-', getS(basicInfo, '\u62DB\u6807\u4F01\u4E1A'));
+    addRow('\u62DB\u6807\u8054\u7CFB\u4EBA', basicInfo['\u62DB\u6807\u8054\u7CFB\u4EBA'] || basicInfo.contactPerson || '-', getS(basicInfo, '\u62DB\u6807\u8054\u7CFB\u4EBA'));
+    addRow('\u8054\u7CFB\u7535\u8BDD', basicInfo['\u8054\u7CFB\u7535\u8BDD'] || basicInfo.contactPhone || '-', getS(basicInfo, '\u8054\u7CFB\u7535\u8BDD'));
+    addRow('\u4EE3\u7406\u673A\u6784', basicInfo['\u4EE3\u7406\u673A\u6784'] || basicInfo.agency || '-', getS(basicInfo, '\u4EE3\u7406\u673A\u6784'));
+    addRow('\u4FE1\u606F\u6765\u6E90', basicInfo['\u4FE1\u606F\u6765\u6E90'] || basicInfo.informationSource || '-', getS(basicInfo, '\u4FE1\u606F\u6765\u6E90'));
+    addRow('CA\u9700\u6C42', basicInfo['CA\u9700\u6C42'] || basicInfo.caRequirement || '-', getS(basicInfo, 'CA\u9700\u6C42'));
+    addRow('\u5F00\u6807\u65B9\u5F0F', basicInfo['\u5F00\u6807\u65B9\u5F0F'] || basicInfo.bidOpeningMethod || '-', getS(basicInfo, '\u5F00\u6807\u65B9\u5F0F'));
+    addRow('\u5F00\u6807\u5730\u70B9', basicInfo['\u5F00\u6807\u5730\u70B9'] || basicInfo.bidOpeningLocation || '-', getS(basicInfo, '\u5F00\u6807\u5730\u70B9'));
+    addRow('\u5982\u4F55\u62A5\u540D/\u83B7\u53D6\u62DB\u6807\u6587\u4EF6', basicInfo['\u5982\u4F55\u62A5\u540D/\u83B7\u53D6\u62DB\u6807\u6587\u4EF6'] || basicInfo.registrationMethod || '-', getS(basicInfo, '\u5982\u4F55\u62A5\u540D/\u83B7\u53D6\u62DB\u6807\u6587\u4EF6'));
+    addRow('\u9879\u76EE\u5730\u70B9', basicInfo['\u9879\u76EE\u5730\u70B9'] || basicInfo.location || '-', getS(basicInfo, '\u9879\u76EE\u5730\u70B9'));
 
-    // ==================== 第2类：财务信息 ====================
-    addSeparator('第2类：财务信息', colors.header2);
-    const financialInfo = data.financialInfo || {};
-    addRow('资金来源', financialInfo.fundingSource || '-', '', getS(financialInfo, 'fundingSource'));
-    addRow('预算金额', financialInfo.budget ? `${Number(financialInfo.budget).toLocaleString()}元` : '-', '', getS(financialInfo, 'budget'), true);
-    if (financialInfo.maxPrice) {
-      addRow('最高限价', `${Number(financialInfo.maxPrice).toLocaleString()}元`, '超出无效', getS(financialInfo, 'maxPrice'), true);
-    }
-    addRow('付款方式', financialInfo.paymentMethod || '-', '', getS(financialInfo, 'paymentMethod'));
-    addRow('标书费', financialInfo.bidDocumentFee ? `${financialInfo.bidDocumentFee}元` : '0元（免费）', '', getS(financialInfo, 'bidDocumentFee'));
-    addRow('投标保证金', financialInfo.bidBond || '不收取', '', getS(financialInfo, 'bidBond'));
-    addRow('履约保证金', financialInfo.performanceBond || '-', '', getS(financialInfo, 'performanceBond'));
-    addRow('质量保证金', financialInfo.qualityBond || '-', '', getS(financialInfo, 'qualityBond'));
-    addRow('代理费', financialInfo.agencyFee || '无', '', getS(financialInfo, 'agencyFee'));
+    // ==================== Category 2: Financial Info ====================
+    addSeparator('\u7B2C\u4E8C\u7C7B\uFF1A\u8D22\u52A1\u4FE1\u606F', colors.header2);
+    const fin = data.financialInfo || {};
+    addRow('\u8D44\u91D1\u6765\u6E90', fin['\u8D44\u91D1\u6765\u6E90'] || fin.fundingSource || '-', getS(fin, '\u8D44\u91D1\u6765\u6E90'));
+    const budgetVal = fin['\u9884\u7B97\u91D1\u989D(\u5143)'] || fin.budget;
+    addRow('\u9884\u7B97\u91D1\u989D(\u5143)', budgetVal ? `${Number(budgetVal).toLocaleString()}\u5143` : '-', getS(fin, '\u9884\u7B97\u91D1\u989D(\u5143)'), true);
+    const maxPriceVal = fin['\u6700\u9AD8\u9650\u4EF7(\u5143)'] || fin.maxPrice;
+    addRow('\u6700\u9AD8\u9650\u4EF7(\u5143)', maxPriceVal ? `${Number(maxPriceVal).toLocaleString()}\u5143` : '-', getS(fin, '\u6700\u9AD8\u9650\u4EF7(\u5143)'), true);
+    addRow('\u9700\u8981\u9884\u5148\u6295\u8D44\u91D1\u989D', fin['\u9700\u8981\u9884\u5148\u6295\u8D44\u91D1\u989D'] || fin.preInvestment || '-', getS(fin, '\u9700\u8981\u9884\u5148\u6295\u8D44\u91D1\u989D'));
+    addRow('\u4ED8\u6B3E\u65B9\u5F0F', fin['\u4ED8\u6B3E\u65B9\u5F0F'] || fin.paymentMethod || '-', getS(fin, '\u4ED8\u6B3E\u65B9\u5F0F'));
+    addRow('\u6807\u4E66\u8D39', fin['\u6807\u4E66\u8D39'] || fin.bidDocumentFee || '-', getS(fin, '\u6807\u4E66\u8D39'));
+    addRow('\u6295\u6807\u4FDD\u8BC1\u91D1', fin['\u6295\u6807\u4FDD\u8BC1\u91D1'] || fin.bidBond || '-', getS(fin, '\u6295\u6807\u4FDD\u8BC1\u91D1'));
+    addRow('\u5C65\u7EA6\u4FDD\u8BC1\u91D1', fin['\u5C65\u7EA6\u4FDD\u8BC1\u91D1'] || fin.performanceBond || '-', getS(fin, '\u5C65\u7EA6\u4FDD\u8BC1\u91D1'));
+    addRow('\u8D28\u91CF\u4FDD\u8BC1\u91D1', fin['\u8D28\u91CF\u4FDD\u8BC1\u91D1'] || fin.qualityBond || '-', getS(fin, '\u8D28\u91CF\u4FDD\u8BC1\u91D1'));
+    addRow('\u4FDD\u5BC6\u4FDD\u8BC1\u91D1', fin['\u4FDD\u5BC6\u4FDD\u8BC1\u91D1'] || fin.confidentialityBond || '-', getS(fin, '\u4FDD\u5BC6\u4FDD\u8BC1\u91D1'));
+    addRow('\u4EE3\u7406\u8D39', fin['\u4EE3\u7406\u8D39'] || fin.agencyFee || '-', getS(fin, '\u4EE3\u7406\u8D39'));
 
-    // ==================== 第3类：资质要求 ====================
-    addSeparator('第3类：资质要求', colors.header3);
+    // ==================== Category 3: Qualification Requirements ====================
+    addSeparator('\u7B2C\u4E09\u7C7B\uFF1A\u8D44\u8D28\u8981\u6C42', colors.header3);
     const qualReqs = data.qualificationRequirements || [];
-    qualReqs.forEach((q: Record<string, any>) => {
-      const qSrc = (key: string) => {
-        const src = q._source;
-        if (!src || typeof src !== 'object') return '';
-        if (src[key]) return formatSource(src[key]);
-        return '';
-      };
-      if (q.jointBid && q.jointBid !== '招标文件未提及') addRow('联合体投标', q.jointBid, q.isSubstantial ? '实质性要求' : '', qSrc('jointBid'));
-      if (q.subcontracting && q.subcontracting !== '招标文件未提及') addRow('分包转包', q.subcontracting, '', qSrc('subcontracting'));
-      if (q.specialQualification && q.specialQualification !== '招标文件未提及') addRow('特别资质', q.specialQualification, '', qSrc('specialQualification'), true);
-      if (q.specialPersonnelReq && q.specialPersonnelReq !== '招标文件未提及') addRow('特别人员要求', q.specialPersonnelReq, '', qSrc('specialPersonnelReq'));
-      if (q.specialNotes && q.specialNotes !== '招标文件未提及') addRow('特别说明', q.specialNotes, '', qSrc('specialNotes'));
-      if (q.policyBenefits && q.policyBenefits !== '招标文件未提及') addRow('政策优惠', q.policyBenefits, '', qSrc('policyBenefits'));
-      if (q.qualificationReview && q.qualificationReview !== '招标文件未提及') addRow('资格性审查', q.qualificationReview, '一票否决', qSrc('qualificationReview'), true);
-      if (q.complianceReview && q.complianceReview !== '招标文件未提及') addRow('符合性审查', q.complianceReview, '一票否决', qSrc('complianceReview'), true);
-      if (q.creditRequirements && q.creditRequirements !== '招标文件未提及') addRow('信用要求', q.creditRequirements, '', qSrc('creditRequirements'));
-    });
+    if (qualReqs.length > 0) {
+      const q = qualReqs[0];
+      addRow('\u8054\u5408\u4F53\u6295\u6807', q['\u8054\u5408\u4F53\u6295\u6807'] || q.jointBid || '-', getS(q, '\u8054\u5408\u4F53\u6295\u6807'));
+      addRow('\u5206\u5305\u8F6C\u5305', q['\u5206\u5305\u8F6C\u5305'] || q.subcontracting || '-', getS(q, '\u5206\u5305\u8F6C\u5305'));
+      addRow('\u4F01\u4E1A\u89C4\u6A21\u8981\u6C42', q['\u4F01\u4E1A\u89C4\u6A21\u8981\u6C42'] || q.companyScaleReq || '-', getS(q, '\u4F01\u4E1A\u89C4\u6A21\u8981\u6C42'));
+      addRow('\u7279\u522B\u8D44\u8D28', q['\u7279\u522B\u8D44\u8D28'] || q.specialQualification || '-', getS(q, '\u7279\u522B\u8D44\u8D28'), true);
+      addRow('\u7279\u522B\u4EBA\u5458\u8981\u6C42', q['\u7279\u522B\u4EBA\u5458\u8981\u6C42'] || q.specialPersonnelReq || '-', getS(q, '\u7279\u522B\u4EBA\u5458\u8981\u6C42'));
+      addRow('\u7279\u522B\u8BF4\u660E', q['\u7279\u522B\u8BF4\u660E'] || q.specialNotes || '-', getS(q, '\u7279\u522B\u8BF4\u660E'));
+      addRow('\u653F\u7B56\u4F18\u60E0', q['\u653F\u7B56\u4F18\u60E0'] || q.policyBenefits || '-', getS(q, '\u653F\u7B56\u4F18\u60E0'));
+      addRow('\u8D44\u683C\u6027\u5BA1\u67E5', q['\u8D44\u683C\u6027\u5BA1\u67E5'] || q.qualificationReview || '-', getS(q, '\u8D44\u683C\u6027\u5BA1\u67E5'), true);
+      addRow('\u7B26\u5408\u6027\u5BA1\u67E5', q['\u7B26\u5408\u6027\u5BA1\u67E5'] || q.complianceReview || '-', getS(q, '\u7B26\u5408\u6027\u5BA1\u67E5'), true);
+      addRow('\u4FE1\u7528\u8981\u6C42', q['\u4FE1\u7528\u8981\u6C42'] || q.creditRequirements || '-', getS(q, '\u4FE1\u7528\u8981\u6C42'));
+    }
 
-    // ==================== 第4类：评分规则 ====================
-    addSeparator('第4类：评分规则', colors.header4);
-    const scoringRules = data.scoringRules || {};
-    const scSrc = (key: string) => {
-      const src = scoringRules._source;
+    // ==================== Category 4: Scoring Rules ====================
+    addSeparator('\u7B2C\u56DB\u7C7B\uFF1A\u8BC4\u5206\u89C4\u5219', colors.header4);
+    const sc = data.scoringRules || {};
+    const scS = (key: string) => {
+      const src = sc._source;
       if (!src || typeof src !== 'object') return '';
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    addRow('总分', `${scoringRules.totalScore || 100}分`, '', scSrc('totalScore'));
-    addRow('客观分', `${scoringRules.objectiveScore || 0}分`, '', scSrc('objectiveScore'));
-    addRow('主观分', `${scoringRules.subjectiveScore || 0}分`, '', scSrc('subjectiveScore'));
-    addRow('价格分', `${scoringRules.priceScore || 0}分`, scoringRules.priceScoreDetail || '低价优先法', scSrc('priceScore'));
-    addRow('商务分', `${scoringRules.commercialScore || 0}分`, scoringRules.commercialScoreDetail || '', scSrc('commercialScore'));
-    addRow('技术分', `${scoringRules.technicalScore || 0}分`, scoringRules.technicalScoreDetail || '', scSrc('technicalScore'));
-    addRow('中标方式', scoringRules.winningMethod || '-', '', scSrc('winningMethod'));
-    addRow('评标方式', scoringRules.evaluationMethod || '-', '', scSrc('evaluationMethod'));
-    if (scoringRules.voidBidExplanation) addRow('废标说明', scoringRules.voidBidExplanation, '重点！', scSrc('voidBidExplanation'), true);
-    if (scoringRules.specialScoringRequirements) addRow('评分特别要求', scoringRules.specialScoringRequirements, '', scSrc('specialScoringRequirements'));
+    addRow('\u603B\u5206', `${sc['\u603B\u5206'] || sc.totalScore || 100}\u5206`, scS('\u603B\u5206'));
+    addRow('\u4EF7\u683C\u5206', `${sc['\u4EF7\u683C\u5206'] || sc.priceScore || 0}\u5206`, scS('\u4EF7\u683C\u5206'));
+    addRow('\u5546\u52A1\u5206', `${sc['\u5546\u52A1\u5206'] || sc.commercialScore || 0}\u5206`, scS('\u5546\u52A1\u5206'));
+    addRow('\u6280\u672F\u5206', `${sc['\u6280\u672F\u5206'] || sc.technicalScore || 0}\u5206`, scS('\u6280\u672F\u5206'));
+    addRow('\u4E2D\u6807\u65B9\u5F0F', sc['\u4E2D\u6807\u65B9\u5F0F'] || sc.winningMethod || '-', scS('\u4E2D\u6807\u65B9\u5F0F'));
+    addRow('\u8BC4\u6807\u65B9\u5F0F', sc['\u8BC4\u6807\u65B9\u5F0F'] || sc.evaluationMethod || '-', scS('\u8BC4\u6807\u65B9\u5F0F'));
+    addRow('\u5BA2\u89C2\u5206/\u4E3B\u89C2\u5206\u6BD4\u4F8B', sc['\u5BA2\u89C2\u5206/\u4E3B\u89C2\u5206\u6BD4\u4F8B'] || sc.objectiveSubjectiveRatio || '-', scS('\u5BA2\u89C2\u5206/\u4E3B\u89C2\u5206\u6BD4\u4F8B'));
+    if (sc['\u5E9F\u6807\u8BF4\u660E'] || sc.voidBidExplanation) {
+      addRow('\u5E9F\u6807\u8BF4\u660E', sc['\u5E9F\u6807\u8BF4\u660E'] || sc.voidBidExplanation || '-', scS('\u5E9F\u6807\u8BF4\u660E'), true);
+    }
+    if (sc['\u8BC4\u5206\u7279\u522B\u8981\u6C42'] || sc.specialScoringRequirements) {
+      addRow('\u8BC4\u5206\u7279\u522B\u8981\u6C42', sc['\u8BC4\u5206\u7279\u522B\u8981\u6C42'] || sc.specialScoringRequirements || '-', scS('\u8BC4\u5206\u7279\u522B\u8981\u6C42'));
+    }
+    const companyCerts = sc['\u8981\u6C42\u4F01\u4E1A\u8D44\u8D28\u8BC1\u4E66'] || sc.requiredCompanyCertificates || [];
+    if (companyCerts.length > 0 && companyCerts[0] !== '\u62DB\u6807\u6587\u4EF6\u672A\u63D0\u53CA') {
+      addRow('\u8981\u6C42\u4F01\u4E1A\u8D44\u8D28\u8BC1\u4E66', Array.isArray(companyCerts) ? companyCerts.join('\u3001') : String(companyCerts), scS('\u8981\u6C42\u4F01\u4E1A\u8D44\u8D28\u8BC1\u4E66'));
+    }
+    const personnelCerts = sc['\u8981\u6C42\u4EBA\u5458\u8D44\u8D28\u8BC1\u4E66'] || sc.requiredPersonnelCertificates || [];
+    if (personnelCerts.length > 0 && personnelCerts[0] !== '\u62DB\u6807\u6587\u4EF6\u672A\u63D0\u53CA') {
+      addRow('\u8981\u6C42\u4EBA\u5458\u8D44\u8D28\u8BC1\u4E66', Array.isArray(personnelCerts) ? personnelCerts.join('\u3001') : String(personnelCerts), scS('\u8981\u6C42\u4EBA\u5458\u8D44\u8D28\u8BC1\u4E66'));
+    }
+    const productReports = sc['\u8981\u6C42\u4EA7\u54C1\u68C0\u6D4B\u62A5\u544A'] || sc.requiredProductReports || [];
+    if (productReports.length > 0 && productReports[0] !== '\u62DB\u6807\u6587\u4EF6\u672A\u63D0\u53CA') {
+      addRow('\u8981\u6C42\u4EA7\u54C1\u68C0\u6D4B\u62A5\u544A', Array.isArray(productReports) ? productReports.join('\u3001') : String(productReports), scS('\u8981\u6C42\u4EA7\u54C1\u68C0\u6D4B\u62A5\u544A'));
+    }
+    const commercialDetail = sc['\u5546\u52A1\u5206\u8BC4\u5BA1\u660E\u7EC6'] || sc.commercialScoreDetail || '';
+    if (commercialDetail) {
+      addRow('\u5546\u52A1\u5206\u8BC4\u5BA1\u660E\u7EC6', addCircleNumbers(commercialDetail), scS('\u5546\u52A1\u5206\u8BC4\u5BA1\u660E\u7EC6'));
+    }
+    const technicalDetail = sc['\u6280\u672F\u5206\u8BC4\u5BA1\u660E\u7EC6'] || sc.technicalScoreDetail || '';
+    if (technicalDetail) {
+      addRow('\u6280\u672F\u5206\u8BC4\u5BA1\u660E\u7EC6', addCircleNumbers(technicalDetail), scS('\u6280\u672F\u5206\u8BC4\u5BA1\u660E\u7EC6'));
+    }
 
-    const companyCerts = scoringRules.requiredCompanyCertificates || [];
-    if (companyCerts.length > 0 && companyCerts[0] !== '招标文件未提及') addRow('要求企业证书', Array.isArray(companyCerts) ? companyCerts.join('、') : String(companyCerts), '', scSrc('requiredCompanyCertificates'));
-    const personnelCerts = scoringRules.requiredPersonnelCertificates || [];
-    if (personnelCerts.length > 0 && personnelCerts[0] !== '招标文件未提及') addRow('要求人员证书', Array.isArray(personnelCerts) ? personnelCerts.join('、') : String(personnelCerts), '', scSrc('requiredPersonnelCertificates'));
-
-    // ==================== 第5类：时间要求 ====================
-    addSeparator('第5类：时间要求', colors.header5);
+    // ==================== Category 5: Time Requirements ====================
+    addSeparator('\u7B2C\u4E94\u7C7B\uFF1A\u65F6\u95F4\u8981\u6C42', colors.header5);
     const timeReqs = data.timeRequirements || {};
-    const tSrc = (key: string) => {
+    const tS = (key: string) => {
       const src = timeReqs._source;
       if (!src || typeof src !== 'object') return '';
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    addRow('获取招标文件截止', timeReqs.documentAcquisitionDeadline || '-', '', tSrc('documentAcquisitionDeadline'));
-    addRow('标前提问截止', timeReqs.preBidQuestionDeadline || '-', '', tSrc('preBidQuestionDeadline'));
-    addRow('开标时间', timeReqs.bidOpeningTime || '-', '', tSrc('bidOpeningTime'), true);
-    addRow('中标交货时间', timeReqs.winningDeliveryTime || '-', '', tSrc('winningDeliveryTime'));
-    addRow('合同履约期限', timeReqs.contractPerformancePeriod || '-', '', tSrc('contractPerformancePeriod'));
+    addRow('\u83B7\u53D6\u62DB\u6807\u6587\u4EF6\u622A\u6B62\u65F6\u95F4', timeReqs['\u83B7\u53D6\u62DB\u6807\u6587\u4EF6\u622A\u6B62\u65F6\u95F4'] || timeReqs.documentAcquisitionDeadline || '-', tS('\u83B7\u53D6\u62DB\u6807\u6587\u4EF6\u622A\u6B62\u65F6\u95F4'));
+    addRow('\u6807\u524D\u63D0\u95EE\u622A\u6B62\u65F6\u95F4', timeReqs['\u6807\u524D\u63D0\u95EE\u622A\u6B62\u65F6\u95F4'] || timeReqs.preBidQuestionDeadline || '-', tS('\u6807\u524D\u63D0\u95EE\u622A\u6B62\u65F6\u95F4'));
+    addRow('\u5F00\u6807\u65F6\u95F4', timeReqs['\u5F00\u6807\u65F6\u95F4'] || timeReqs.bidOpeningTime || '-', tS('\u5F00\u6807\u65F6\u95F4'), true);
+    addRow('\u4E2D\u6807\u4EA4\u8D27\u65F6\u95F4/\u9879\u76EE\u5B9E\u65BD\u671F', timeReqs['\u4E2D\u6807\u4EA4\u8D27\u65F6\u95F4/\u9879\u76EE\u5B9E\u65BD\u671F'] || timeReqs.winningDeliveryTime || '-', tS('\u4E2D\u6807\u4EA4\u8D27\u65F6\u95F4/\u9879\u76EE\u5B9E\u65BD\u671F'));
+    addRow('\u5408\u540C\u5C65\u7EA6\u671F\u9650', timeReqs['\u5408\u540C\u5C65\u7EA6\u671F\u9650'] || timeReqs.contractPerformancePeriod || '-', tS('\u5408\u540C\u5C65\u7EA6\u671F\u9650'));
 
-    // ==================== 第6类：项目信息 ====================
-    addSeparator('第6类：项目信息', colors.header6);
-    const projectInfo = data.projectInfo || {};
-    const pSrc = (key: string) => {
-      const src = projectInfo._source;
+    // ==================== Category 6: Project Info ====================
+    addSeparator('\u7B2C\u516D\u7C7B\uFF1A\u9879\u76EE\u4FE1\u606F', colors.header6);
+    const proj = data.projectInfo || {};
+    const pS = (key: string) => {
+      const src = proj._source;
       if (!src || typeof src !== 'object') return '';
       if (src[key]) return formatSource(src[key]);
       return '';
     };
-    if (projectInfo.substantialRequirements) addRow('▲★※满足要求', projectInfo.substantialRequirements, '重点！必须全部响应', pSrc('substantialRequirements'), true);
-    if (projectInfo.deviationResult) addRow('偏离▲★※结果', projectInfo.deviationResult, '一项不满足即废标', pSrc('deviationResult'), true);
-    // Post-process voidBidConditions: extract only lines containing void-bid keywords, format as ①②③
-    const formatVoidBid = (text: string): string => {
-      if (!text || text === '-') return text;
-      // Split by clause boundaries: after 。|；|\n, before 九、十、※十一、1.、etc.
-      const clauses = text
-        .split(/(?<=[。；\n])|(?=[一二三四五六七八九十]+[、．.]|※[一二三四五六七八九十]+[、．.]|\d+[、．.])/)
-        .map(c => c.replace(/\n/g, '').trim())
-        .filter(c => c);
-      const kw = /废标|无效报价|视为无效|投标无效|按无效处理|否决投标|不予受理|拒收|取消资格|作废|不得参加|无效。/u;
-      const matches = clauses.filter(c => kw.test(c));
-      // Deduplicate by first 50 chars
-      const seen = new Set<string>();
-      const unique = matches.filter(c => {
-        const key = c.substring(0, 50);
-        if (seen.has(key)) return false;
-        seen.add(key); return true;
-      });
-      if (unique.length === 0) return text.substring(0, 200).replace(/\n/g, ' ');
-      const CIRCLE = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
-      return unique.map((s, i) => (CIRCLE[i] || `${i+1}.`) + s).join('\n');
-    };
-    if (projectInfo.voidBidConditions) addRow('废标/无效报价', formatVoidBid(projectInfo.voidBidConditions), '重点！', '', true);
-    if (projectInfo.qualificationReviewItems) addRow('资格性审查项', projectInfo.qualificationReviewItems, '一票否决', '', true);
-    if (projectInfo.complianceReviewItems) addRow('符合性审查项', projectInfo.complianceReviewItems, '一票否决', '', true);
-    if (projectInfo.drawingsProvided) addRow('图纸提供', projectInfo.drawingsProvided, '', pSrc('drawingsProvided'));
-    addRow('现场踏勘', projectInfo.siteSurveyRequired || '-', '', pSrc('siteSurveyRequired'));
-    if (projectInfo.controlPoints) addRow('控标点', projectInfo.controlPoints, '', pSrc('controlPoints'));
-    if (projectInfo.businessRequirements) addRow('商务需求', projectInfo.businessRequirements, '', pSrc('businessRequirements'));
-    if (projectInfo.technicalRequirements) addRow('技术需求', projectInfo.technicalRequirements, '', pSrc('technicalRequirements'));
-    if (projectInfo.coreServiceRequirements) addRow('核心服务需求', projectInfo.coreServiceRequirements, '', pSrc('coreServiceRequirements'));
-    if (projectInfo.projectOutcomeRequirements) addRow('项目成果要求', projectInfo.projectOutcomeRequirements, '', pSrc('projectOutcomeRequirements'));
-    if (projectInfo.finalDelivery) addRow('最终交付', projectInfo.finalDelivery, '', pSrc('finalDelivery'));
-    if (projectInfo.specialProjectPoints) addRow('项目特别提到点', projectInfo.specialProjectPoints, '', pSrc('specialProjectPoints'));
-    addRow('正本副本', projectInfo.originalCopies || '-', '', pSrc('originalCopies'));
-    addRow('密封要求', projectInfo.sealingRequirements || '-', '', pSrc('sealingRequirements'));
-    addRow('包装要求', projectInfo.packagingRequirements || '-', '', pSrc('packagingRequirements'));
-    addRow('盖章要求', projectInfo.stampingRequirements || '-', '', pSrc('stampingRequirements'));
-    addRow('签字要求', projectInfo.signatureRequirements || '-', '', pSrc('signatureRequirements'));
-    addRow('验收要求', projectInfo.acceptanceRequirements || '-', '', pSrc('acceptanceRequirements'));
+    addRow('\u25B2\u2605\u2606\u8981\u6C42', proj['\u25B2\u2605\u2606\u8981\u6C42'] || proj.substantialRequirements || '-', pS('\u25B2\u2605\u2606\u8981\u6C42'), true);
+    addRow('\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C', proj['\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C'] || proj.deviationResult || '-', pS('\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C'), true);
+    addRow('\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5', proj['\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5'] || proj.drawingsProvided || '-', pS('\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5'));
+    addRow('\u73B0\u573A\u8E0F\u52D8', proj['\u73B0\u573A\u8E0F\u52D8'] || proj.siteSurveyRequired || '-', pS('\u73B0\u573A\u8E0F\u52D8'));
+    addRow('\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898', proj['\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898'] || proj.siteSurveyConfirmation || '-', pS('\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898'));
+    addRow('\u63A7\u6807\u70B9', proj['\u63A7\u6807\u70B9'] || proj.controlPoints || '-', pS('\u63A7\u6807\u70B9'));
+    addRow('\u5546\u52A1\u9700\u6C42', proj['\u5546\u52A1\u9700\u6C42'] || proj.businessRequirements || '-', pS('\u5546\u52A1\u9700\u6C42'));
+    addRow('\u6280\u672F\u9700\u6C42\uFF08\u6280\u672F\u53C2\u6570\uFF09', proj['\u6280\u672F\u9700\u6C42\uFF08\u6280\u672F\u53C2\u6570\uFF09'] || proj.technicalRequirements || '-', pS('\u6280\u672F\u9700\u6C42\uFF08\u6280\u672F\u53C2\u6570\uFF09'));
+    addRow('\u6838\u5FC3\u670D\u52A1\u9700\u6C42', proj['\u6838\u5FC3\u670D\u52A1\u9700\u6C42'] || proj.coreServiceRequirements || '-', pS('\u6838\u5FC3\u670D\u52A1\u9700\u6C42'));
+    addRow('\u9879\u76EE\u6210\u679C\u8981\u6C42', proj['\u9879\u76EE\u6210\u679C\u8981\u6C42'] || proj.projectOutcomeRequirements || '-', pS('\u9879\u76EE\u6210\u679C\u8981\u6C42'));
+    addRow('\u6700\u7EC8\u4EA4\u4ED8', proj['\u6700\u7EC8\u4EA4\u4ED8'] || proj.finalDelivery || '-', pS('\u6700\u7EC8\u4EA4\u4ED8'));
+    addRow('\u9879\u76EE\u7279\u522B\u63D0\u5230\u70B9', proj['\u9879\u76EE\u7279\u522B\u63D0\u5230\u70B9'] || proj.specialProjectPoints || '-', pS('\u9879\u76EE\u7279\u522B\u63D0\u5230\u70B9'));
+    addRow('\u6B63\u672C\u526F\u672C', proj['\u6B63\u672C\u526F\u672C'] || proj.originalCopies || '-', pS('\u6B63\u672C\u526F\u672C'));
+    addRow('\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0', proj['\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0'] || proj.bidSubmissionMarking || '-', pS('\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0'));
+    addRow('\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42', proj['\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42'] || proj.sealingRequirements || proj.packagingRequirements || proj.stampingRequirements || '-', pS('\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42'));
+    addRow('\u9A8C\u6536\u8981\u6C42', proj['\u9A8C\u6536\u8981\u6C42'] || proj.acceptanceRequirements || '-', pS('\u9A8C\u6536\u8981\u6C42'));
 
-    // ==================== 第7类：老板总结 ====================
-    addSeparator('第7类：老板总结', colors.brandPurple);
+    // ==================== Category 7: Special Rows ====================
+    addSeparator('\u7279\u6B8A\u884C', colors.brandPurple);
     const phoneQuestions = data.phoneQuestions || [];
     const risks = data.risks || [];
-    const checklistCount = (data.checklist || []).length;
+    const prepTasks = data.preparationTasks || [];
 
     if (isPaid) {
-      if (risks.length > 0) {
-        risks.forEach((risk: Record<string, any>) => {
-          const levelMap: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' };
-          addRow(`风险：${levelMap[risk.level] || '中'}`, risk.title || '风险项', risk.description || '', risk.suggestion || '', risk.level === 'critical');
-        });
-      }
-      if (checklistCount > 0) {
-        const checklist = data.checklist || [];
-        const groups: Record<string, string[]> = {};
-        checklist.forEach((c: any) => {
-          const cat = c.category || '其他';
-          if (!groups[cat]) groups[cat] = [];
-          groups[cat].push(`${c.item}${c.required ? '(必)' : ''}${c.scoreWeight ? `[${c.scoreWeight}分]` : ''}`);
-        });
-        Object.entries(groups).forEach(([cat, items]) => {
-          addRow(`准备分工：${cat}`, items.join('、'), '', '');
-        });
-      }
+      // Phone questions
       if (phoneQuestions.length > 0) {
-        phoneQuestions.forEach((q: Record<string, any>, idx: number) => {
-          addRow(`电话问题${idx + 1}`, q.question || '-', q.reason || '', '');
-        });
+        addRow('1\u3001\u7535\u8BDD\u95EE\u9898', addCircleNumbers(phoneQuestions.map((q: any) => q.question || q).join('\uFF1B')), '');
       }
-      const recLabel: Record<string, string> = { bid: '建议投标', 'no-bid': '不建议投标', caution: '谨慎投标' };
-      addRow('投标建议', recLabel[data.recommendation || 'caution'] || '谨慎投标', (data.reasons || []).join('；'), '', true);
+      // Risks
+      if (risks.length > 0) {
+        addRow('2\u3001\u98CE\u9669\u6E05\u5355', addCircleNumbers(risks.map((r: any) => r.description || r.title || '').join('\uFF1B')), '');
+      }
+      // Preparation tasks
+      if (prepTasks.length > 0) {
+        addRow('3\u3001\u51C6\u5907\u5206\u5DE5', addCircleNumbers(prepTasks.map((t: any) => `${t.category || ''}${(t.items || []).join('\u3001')}`).join('\uFF1B')), '');
+      }
+      // Investment suggestion
+      const recLabel: Record<string, string> = { bid: '\u5EFA\u8BAE\u6295\u6807', 'no-bid': '\u4E0D\u5EFA\u8BAE\u6295\u6807', caution: '\u8C28\u614E\u6295\u6807' };
+      addRow('4\u3001\u6295\u6807\u5EFA\u8BAE', `${recLabel[data.recommendation || 'caution'] || '\u8C28\u614E\u6295\u6807'}\uFF1B${(data.reasons || []).join('\uFF1B')}`, '', true);
     } else {
-      addRow('风险清单', `${risks.length}条`, '付费后查看详细内容', '');
-      addRow('准备分工', `${checklistCount}条`, '付费后查看详细内容', '');
-      addRow('电话问题', `${phoneQuestions.length}条`, '付费后查看详细内容', '');
-      addRow('投标建议', '付费后查看', '', '');
+      addRow('1\u3001\u7535\u8BDD\u95EE\u9898', `${phoneQuestions.length}\u6761\uFF0C\u4ED8\u8D39\u540E\u67E5\u770B\u8BE6\u7EC6\u5185\u5BB9`, '');
+      addRow('2\u3001\u98CE\u9669\u6E05\u5355', `${risks.length}\u6761\uFF0C\u4ED8\u8D39\u540E\u67E5\u770B\u8BE6\u7EC6\u5185\u5BB9`, '');
+      addRow('3\u3001\u51C6\u5907\u5206\u5DE5', `${prepTasks.length}\u6761\uFF0C\u4ED8\u8D39\u540E\u67E5\u770B\u8BE6\u7EC6\u5185\u5BB9`, '');
+      addRow('4\u3001\u6295\u6807\u5EFA\u8BAE', '\u4ED8\u8D39\u540E\u67E5\u770B', '', true);
     }
 
-    // ==================== 渲染 autoTable ====================
+    // ==================== Render autoTable ====================
     doc.addPage();
 
-    // 明细分项格式化：将长文本按编号拆分展示
-    const formatNumberedItems = (text: string): string => {
-      if (!text || text === '-') return text;
-      // 检测是否包含编号模式
-      const hasNumberedPattern = /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
-        /\d+[.、）)]\s*/.test(text) ||
-        /[•●■◆▪]\s*/.test(text) ||
-        /[-—]\s{2,}/.test(text);
-      if (!hasNumberedPattern) return text;
-      // 在编号前添加换行，保留编号
-      let formatted = text
-        .replace(/([①②③④⑤⑥⑦⑧⑨⑩])/g, '\n$1')
-        .replace(/(\d+[.、）)])\s*/g, '\n$1')
-        .replace(/([•●■◆▪])\s*/g, '\n$1')
-        .replace(/\n{2,}/g, '\n')
-        .trim();
-      return formatted;
-    };
-
-    // 添加①②③编号到多条目内容
-    const CIRCLE_NUMBERS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
-                            '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
-    function addCircleNumbers(text: string): string {
-      if (!text || text === '-') return text;
-      // 已有圆圈编号 → 跳过
-      if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(text)) return text;
-      // 分割并编号
-      const parts = text.split(/[；;]\s*|\n\s*/).filter(p => p.trim().length > 0);
-      if (parts.length <= 1) return text;
-      return parts.map((p, i) => (CIRCLE_NUMBERS[i] || `${i+1}.`) + p).join(' ');
-    }
-
-    // 对所有行的keyPoint和detail列应用分项格式化
     rows.forEach(row => {
       if (!row.isSeparator) {
-        row.keyPoint = formatNumberedItems(addCircleNumbers(row.keyPoint));
-        row.detail = formatNumberedItems(row.detail);
+        row.data = formatNumberedItems(row.data);
       }
     });
 
-    const head = [['编号', '字段名称', '项目数据要点', '备注', '来源定位']];
+    const head = [['\u7F16\u53F7', '\u5B57\u6BB5\u540D\u79F0', '\u9879\u76EE\u6570\u636E', '\u6765\u6E90\u5B9A\u4F4D']];
     const body = rows.map((r) => {
-      if (r.isSeparator) return [{ content: '' }, { content: r.keyPoint || '', colSpan: 4, styles: { fillColor: r.separatorColor || colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 10 } }, {}, {}, {}];
-      return [r.no, r.fieldName, r.keyPoint, r.detail, r.source];
+      if (r.isSeparator) return [{ content: '' }, { content: r.data || '', colSpan: 3, styles: { fillColor: r.separatorColor || colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 10 } }, {}, {}];
+      return [r.no, r.fieldName, r.data, r.source];
     });
 
     (autoTable as any)(doc, {
@@ -468,11 +433,10 @@ export async function POST(request: NextRequest) {
       body: body as any,
       margin: { left: margin, right: margin },
       columnStyles: {
-        0: { cellWidth: 9 },    // 编号
-        1: { cellWidth: 24 },   // 字段名称
-        2: { cellWidth: 75 },   // 项目数据要点
-        3: { cellWidth: 68 },   // 备注
-        4: { cellWidth: 34 },   // 来源定位
+        0: { cellWidth: 12 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 115 },
+        3: { cellWidth: 52 },
       },
       styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', font: 'SimHei', lineHeight: 1.4 } as any,
       headStyles: { fillColor: colors.brandPurple, textColor: colors.white, fontStyle: 'bold', fontSize: 8 } as any,
@@ -482,7 +446,7 @@ export async function POST(request: NextRequest) {
         if (!row) return;
 
         if (row.isSeparator && row.separatorColor) {
-          for (let i = 0; i < 5; i++) {
+          for (let i = 0; i < 4; i++) {
             data.cell.styles.fillColor = row.separatorColor;
             data.cell.styles.textColor = colors.white;
             data.cell.styles.fontStyle = 'bold';
@@ -507,7 +471,7 @@ export async function POST(request: NextRequest) {
     doc.text('OpenCheck', margin, pageHeight - 8);
     doc.setFont('SimHei', 'normal');
     doc.text('BID DECISION OS', margin + 35, pageHeight - 8);
-    doc.text(`共 ${doc.getNumberOfPages()} 页`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+    doc.text(`\u5171 ${doc.getNumberOfPages()} \u9875`, pageWidth - margin, pageHeight - 8, { align: 'right' });
 
     const pdfBuffer = doc.output('arraybuffer');
 
@@ -519,6 +483,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('PDF generation error:', error);
-    return NextResponse.json({ error: '生成PDF失败' }, { status: 500 });
+    return NextResponse.json({ error: '\u751F\u6210PDF\u5931\u8D25' }, { status: 500 });
   }
 }

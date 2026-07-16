@@ -16,6 +16,7 @@ import { trackBehavior } from '@/lib/behavior';
 import { extractAllRules, RuleExtractionResult } from '@/lib/rule-extractors';
 import { extractAllSymbolItems } from '@/lib/rule-extractors/symbol-extractor';
 import { identifyIndustry } from '@/lib/utils/industry-identifier';
+import { getOrCreateUserProfile, generateProfilePrompt } from '@/lib/user-profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,7 +124,6 @@ export async function POST(request: NextRequest) {
     const maxTokens = isPaidUser ? 16000 : 12000;
 
     const formData = await request.formData();
-    const uploadId = formData.get('uploadId') as string;
     const fileUrl = formData.get('fileUrl') as string;
     const projectId = formData.get('projectId') as string;
 
@@ -141,28 +141,8 @@ export async function POST(request: NextRequest) {
       const originalFileName = decodeURIComponent(urlParts[urlParts.length - 1].replace(/^\d+-\w+-/, ''));
       file = new File([fileBuffer], originalFileName, { type: response.headers.get('content-type') || 'application/octet-stream' });
       console.log(`[Analyze] 下载完成: ${originalFileName} (${fileBuffer.byteLength} bytes)`);
-    } else if (uploadId) {
-      // Chunked upload: read assembled file from disk
-      const { readFile: fsReadFile, unlink } = await import('fs/promises');
-      const { existsSync } = await import('fs');
-      const pathMod = await import('path');
-      const { readdir } = await import('fs/promises');
-      const uploadsDir = pathMod.default.join(process.cwd(), 'tmp', 'uploads');
-      if (!existsSync(uploadsDir)) {
-        return NextResponse.json({ error: '文件不存在或已过期' }, { status: 400 });
-      }
-      const files = await readdir(uploadsDir);
-      const matchFile = files.find(f => f.startsWith(uploadId + '_'));
-      if (!matchFile) {
-        return NextResponse.json({ error: '文件不存在或已过期，请重新上传' }, { status: 400 });
-      }
-      const filePath = pathMod.default.join(uploadsDir, matchFile);
-      const fileBuffer = await fsReadFile(filePath);
-      const originalFileName = matchFile.substring(uploadId.length + 1);
-      file = new File([fileBuffer], originalFileName, { type: 'application/octet-stream' });
-      await unlink(filePath).catch(() => {});
-      console.log(`[Analyze] 读取分片上传文件: ${originalFileName} (${fileBuffer.length} bytes)`);
     } else {
+      // Regular upload: file in FormData (includes chunked uploads that sent base64 to client)
       file = formData.get('file') as File;
     }
 
@@ -334,6 +314,38 @@ export async function POST(request: NextRequest) {
       ? contentWithAnchors.substring(0, maxContentLength) + `\n\n[... 文件内容过长（${contentWithAnchors.length}字符），已截取前${maxContentLength}字符]`
       : contentWithAnchors;
 
+    // 查询行业规则（从 IndustryRule 表）- 在 prompt 构建前执行
+    let industryRulesText = '';
+    try {
+      const identifiedIndustry = identifyIndustry(parsedDoc.title, { content: parsedDoc.content.substring(0, 2000) });
+      
+      if (identifiedIndustry) {
+        const industryRules = await prisma.industryRule.findMany({
+          where: {
+            industry: identifiedIndustry,
+            isActive: true,
+          },
+          take: 10,
+          orderBy: { category: 'asc' },
+          select: {
+            category: true,
+            title: true,
+            content: true,
+          },
+        });
+        
+        if (industryRules.length > 0) {
+          industryRulesText = `\n\n## 行业规则参考（${identifiedIndustry}行业，共${industryRules.length}条）
+${industryRules.map((r, i) => `${i + 1}. [${r.category}] ${r.title}：${r.content}`).join('\n')}
+
+请在分析时参考以上行业规则，确保分析结果符合该行业的特殊要求。`;
+          console.log(`[Analyze] 注入 ${industryRules.length} 条行业规则 (${identifiedIndustry})`);
+        }
+      }
+    } catch (e) {
+      console.error('[Analyze] 查询行业规则失败:', e);
+    }
+
     // 构建控标参考规则库（注入到prompt中供AI参考）
     const controlRules = ALL_RULES.filter((r: any) =>
       ['collusion-signal', 'collusion-boundary', 'bid-invalidity', 'hard-rejection'].includes(r.category)
@@ -375,10 +387,22 @@ ${ruleResult.documentRequirements.rawSections.length > 0 ? ruleResult.documentRe
 ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') || '未识别到评分数字'}
 `;
 
-    // 在prompt中插入控标参考规则库和规则提取结果
+    // 获取用户画像（注入到prompt中供AI参考）
+    let userProfileText = '';
+    try {
+      const userProfile = await getOrCreateUserProfile(session.user.id);
+      userProfileText = generateProfilePrompt(userProfile);
+      if (userProfileText) {
+        console.log(`[Analyze] 注入用户画像 (${userProfile?.totalAssessments}次分析)`);
+      }
+    } catch (e) {
+      console.error('[Analyze] 获取用户画像失败:', e);
+    }
+
+    // 在prompt中插入控标参考规则库、行业规则、用户画像和规则提取结果
     let promptWithRules = TENDER_ANALYSIS_PROMPT.replace(
       '## 招标文件内容',
-      rulesRef + '\n\n' + ruleExtractionRef + '\n\n## 招标文件内容'
+      rulesRef + industryRulesText + (userProfileText ? '\n\n' + userProfileText : '') + '\n\n' + ruleExtractionRef + '\n\n## 招标文件内容'
     );
     let embeddedDocContent = truncatedContent;
     let finalPrompt = promptWithRules.replace('{document_content}', embeddedDocContent);
@@ -521,6 +545,14 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
     
     trackBehavior({ userId: session.user.id, action: 'upload' });
     trackBehavior({ userId: session.user.id, action: 'analyze' });
+
+    // 追踪重复分析行为（留存漏斗）
+    const previousAnalysisCount = await prisma.assessment.count({
+      where: { userId: session.user.id },
+    });
+    if (previousAnalysisCount > 1) {
+      trackBehavior({ userId: session.user.id, action: 'repeat_analysis' });
+    }
 
     // 验证AI返回是否包含9个必要字段
     const requiredFields = [
@@ -1003,46 +1035,18 @@ ${ruleResult.scoring.map(s => `- ${s.field}：${s.value}${s.unit}`).join('\n') |
       console.error('[Analyze] 查询类似项目失败:', e);
     }
 
-    // 查询行业规则（从 IndustryRule 表）
-    let industryRules: any[] = [];
+    // 行业规则已在 prompt 构建时注入，这里返回已识别的行业信息
+    let identifiedIndustryForResponse: string | null = null;
     try {
-      const industry = identifyIndustry(assessment.projectName, assessment.basicInfo as Record<string, any>);
-      
-      if (industry) {
-        const rules = await prisma.industryRule.findMany({
-          where: {
-            industry: industry,
-            isActive: true,
-          },
-          take: 10,
-          orderBy: { category: 'asc' },
-          select: {
-            id: true,
-            category: true,
-            title: true,
-            content: true,
-          },
-        });
-        
-        industryRules = rules.map(r => ({
-          id: r.id,
-          category: r.category,
-          title: r.title,
-          content: r.content,
-        }));
-        
-        console.log(`[Analyze] 查询到 ${industryRules.length} 条行业规则 (${industry})`);
-      } else {
-        console.log(`[Analyze] 未识别行业类型，跳过行业规则查询`);
-      }
+      identifiedIndustryForResponse = identifyIndustry(assessment.projectName, assessment.basicInfo as Record<string, any>);
     } catch (e) {
-      console.error('[Analyze] 查询行业规则失败:', e);
+      // ignore
     }
 
     return NextResponse.json({ 
       assessment: savedAssessment, 
       similarProjects,
-      industryRules,
+      industry: identifiedIndustryForResponse,
     });
   } catch (error) {
     console.error('[Analyze] 分析错误:', error);

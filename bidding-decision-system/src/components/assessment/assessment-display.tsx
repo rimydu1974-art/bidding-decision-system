@@ -164,7 +164,7 @@ export function AssessmentDisplay({
       setExportProgress(30);
       setExportStatus('生成Excel表格...');
       
-      const response = await fetch('/api/report', {
+      const response = await fetch('/api/report/excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assessment, isPaid }),
@@ -178,7 +178,7 @@ export function AssessmentDisplay({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `bid-assessment-${Date.now()}.xlsx`;
+        a.download = `bid-report-${Date.now()}.xlsx`;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {

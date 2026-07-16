@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { UnlockComparisonTable } from '@/components/popup/unlock-comparison-table';
 import { NudgeCard } from '@/components/popup/nudge-card';
+import { DecisionRecorder } from '@/components/assessment/decision-recorder';
+import { RetrospectiveBanner } from '@/components/assessment/retrospective-banner';
 
 // 解锁价格（与 src/lib/pricing.ts 保持一致）
 const UNLOCK_PRICE = 19;
@@ -85,6 +87,7 @@ interface AssessmentData {
   recommendation?: string;
   riskLevel?: string;
   riskAggregation?: RiskAggregation;
+  userDecision?: string;
   bidAnalysis?: {
     scoringResults: any[];
     totalScore: number;
@@ -644,7 +647,7 @@ export default function ProjectDetailPage() {
         setTimeout(() => { setExporting(false); setExportLabel(''); }, 3000);
         return;
       }
-      const res = await fetch('/api/report', {
+      const res = await fetch('/api/report/excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assessment, isPaid: isUnlocked }),
@@ -867,7 +870,14 @@ export default function ProjectDetailPage() {
           )}
 
           {activeTab === 'eval' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="space-y-4">
+              {/* 历史回溯提示条 */}
+              <RetrospectiveBanner
+                assessmentId={projectId}
+                projectName={assessment?.basicInfo?.projectName || project?.name || ''}
+              />
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* Left Column (1/3) */}
               <div className="lg:col-span-1 space-y-4">
                 {/* Score Gauge */}
@@ -1050,8 +1060,9 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <NudgeCard
+            <NudgeCard
                 config={{
                   plan: userPlan as 'free' | 'single',
                   analyzeCount,
@@ -1059,6 +1070,41 @@ export default function ProjectDetailPage() {
                 }}
                 onUpgrade={() => router.push('/pricing')}
               />
+
+              {/* 决策记录横幅 */}
+              {assessment && !assessment.userDecision && (
+                <div className="mt-4">
+                  <DecisionRecorder
+                    assessmentId={projectId}
+                    projectName={assessment.basicInfo?.projectName || project?.name || ''}
+                    onDecisionRecorded={(decision) => {
+                      setAssessment({ ...assessment, userDecision: decision });
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* 已记录决策状态 */}
+              {assessment?.userDecision && (
+                <div className="mt-4 p-3 rounded-lg bg-[#1e1e2e] border border-[#2e2e42]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#6b7280]">决策状态：</span>
+                    <span className={`text-sm font-medium ${
+                      assessment.userDecision === 'bid'
+                        ? 'text-green-400'
+                        : assessment.userDecision === 'no-bid'
+                          ? 'text-red-400'
+                          : 'text-yellow-400'
+                    }`}>
+                      {assessment.userDecision === 'bid'
+                        ? '✅ 决定投'
+                        : assessment.userDecision === 'no-bid'
+                          ? '❌ 不投了'
+                          : '⏸ 暂不确定'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

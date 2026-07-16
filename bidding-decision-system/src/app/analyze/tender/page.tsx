@@ -176,6 +176,7 @@ export default function TenderAnalyzePage() {
         setProgressStage('分片上传中...');
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        let assembledFileBase64: string | null = null;
 
         for (let i = 0; i < totalChunks; i++) {
           const start = i * CHUNK_SIZE;
@@ -206,16 +207,29 @@ export default function TenderAnalyzePage() {
 
           const chunkResult = await chunkRes.json();
           if (chunkResult.complete) {
-            console.log('[Chunk] All chunks uploaded and assembled');
+            console.log('[Chunk] All chunks uploaded, sending to analyze...');
+            assembledFileBase64 = chunkResult.fileBase64;
+            break;
           }
         }
 
-        // Now trigger analysis with uploadId
+        if (!assembledFileBase64) {
+          throw new Error('文件上传失败：未收到完整文件');
+        }
+
+        // Convert base64 back to Blob and send directly to /api/analyze
         setProgressStage('开始AI分析...');
         setProgress(35);
 
+        const binaryStr = atob(assembledFileBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let j = 0; j < binaryStr.length; j++) {
+          bytes[j] = binaryStr.charCodeAt(j);
+        }
+        const blob = new Blob([bytes], { type: file.type });
+
         const analyzeForm = new FormData();
-        analyzeForm.append('uploadId', uploadId);
+        analyzeForm.append('file', blob, file.name);
         analyzeForm.append('projectId', 'tender-upload');
 
         const controller = new AbortController();

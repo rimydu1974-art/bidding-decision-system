@@ -7,7 +7,7 @@ import { validateSession, getTokenFromRequest } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 const CHUNK_DIR = path.join(process.cwd(), 'tmp', 'chunks');
-const MAX_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB per chunk (safe under Vercel limit)
+const MAX_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB per chunk
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max
 const UPLOAD_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
       if (meta.fileName !== fileName || meta.totalChunks !== totalChunks) {
         return NextResponse.json({ error: '分片参数不一致' }, { status: 400 });
       }
-      // Check expiry
       if (Date.now() - meta.createdAt > UPLOAD_EXPIRY_MS) {
         await cleanupChunkDir(uploadId);
         return NextResponse.json({ error: '上传已过期，请重试' }, { status: 410 });
@@ -90,14 +89,14 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await chunk.arrayBuffer());
     await writeFile(path.join(chunkDir, `chunk_${String(chunkIndex).padStart(6, '0')}`), buffer);
 
-    console.log(`[Chunk] Received chunk ${chunkIndex + 1}/${totalChunks} for ${fileName} (uploadId: ${uploadId})`);
+    console.log(`[Chunk] Received chunk ${chunkIndex + 1}/${totalChunks} for ${fileName} (${buffer.length} bytes)`);
 
     // Check if all chunks received
     const files = await readdir(chunkDir);
     const chunkFiles = files.filter(f => f.startsWith('chunk_'));
 
     if (chunkFiles.length === totalChunks) {
-      // All chunks received - assemble file
+      // All chunks received - assemble in memory and return as base64
       console.log(`[Chunk] All ${totalChunks} chunks received, assembling...`);
       const assembledChunks: Buffer[] = [];
       for (let i = 0; i < totalChunks; i++) {
@@ -105,24 +104,22 @@ export async function POST(request: NextRequest) {
         assembledChunks.push(await readFile(chunkPath));
       }
       const assembledBuffer = Buffer.concat(assembledChunks);
-      const outputDir = path.join(process.cwd(), 'tmp', 'uploads');
-      if (!existsSync(outputDir)) {
-        await mkdir(outputDir, { recursive: true });
-      }
-      const assembledPath = path.join(outputDir, `${uploadId}_${fileName}`);
-      await writeFile(assembledPath, assembledBuffer);
 
-      console.log(`[Chunk] Assembled file: ${assembledPath} (${assembledBuffer.length} bytes)`);
+      console.log(`[Chunk] Assembled: ${assembledBuffer.length} bytes, returning as base64`);
 
       // Cleanup chunks
       await cleanupChunkDir(uploadId);
+
+      // Return as base64 so the client can send it directly to /api/analyze
+      // This avoids cross-instance filesystem issues on Vercel
+      const base64 = assembledBuffer.toString('base64');
 
       return NextResponse.json({
         complete: true,
         uploadId,
         fileName,
         fileSize: assembledBuffer.length,
-        filePath: assembledPath,
+        fileBase64: base64,
       });
     }
 
