@@ -42,6 +42,9 @@ export async function GET(
       }
     }
 
+    // 添加 userDecision 字段
+    parsed.userDecision = assessment.userDecision;
+
     return NextResponse.json({ assessment: parsed });
   } catch (error) {
     console.error('Get assessment error:', error);

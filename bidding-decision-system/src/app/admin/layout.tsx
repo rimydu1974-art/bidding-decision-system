@@ -19,6 +19,8 @@ import {
   Check,
   CheckCheck,
   Upload,
+  Database,
+  Briefcase,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
@@ -26,6 +28,8 @@ const adminNav = [
   { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
   { href: '/admin/users', label: '用户管理', icon: Users },
   { href: '/admin/orders', label: '订单管理', icon: ShoppingCart },
+  { href: '/admin/knowledge', label: '知识库', icon: Database },
+  { href: '/admin/cases', label: '招标案例', icon: Briefcase },
   { href: '/admin/import', label: '数据导入', icon: Upload },
   { href: '/admin/ai-cost', label: 'AI成本', icon: Cpu },
   { href: '/admin/behavior', label: '行为漏斗', icon: Activity },
@@ -34,6 +38,7 @@ const adminNav = [
   { href: '/admin/export', label: '数据导出', icon: Download },
   { href: '/admin/customers', label: '高价值客户', icon: Star },
   { href: '/admin/rules', label: '规则管理', icon: FileText },
+  { href: '/admin/industry-rules', label: '行业规则', icon: FileText },
   { href: '/admin/notifications', label: '通知中心', icon: Bell },
   { href: '/admin/settings', label: '系统配置', icon: Settings },
 ];

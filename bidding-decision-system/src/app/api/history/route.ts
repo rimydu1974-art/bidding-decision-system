@@ -22,6 +22,19 @@ export async function GET(request: NextRequest) {
       where: { userId: session.user.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
+      select: {
+        id: true,
+        projectName: true,
+        projectCode: true,
+        budget: true,
+        riskLevel: true,
+        recommendation: true,
+        fileName: true,
+        userDecision: true,
+        userDecisionAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json({ assessments });

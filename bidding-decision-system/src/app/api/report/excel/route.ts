@@ -179,6 +179,8 @@ export async function POST(request: NextRequest) {
     addRow('▲★※要求', proj['▲★※要求'] || proj.substantialRequirements || '-', pS('▲★※要求'));
     addRow('偏离▲★※的结果', proj['偏离▲★※的结果'] || proj.deviationResult || '-', pS('偏离▲★※的结果'));
     addRow('图纸提供情况', proj['图纸提供情况'] || proj.drawingsProvided || '-', pS('图纸提供情况'));
+    addRow('图纸深度要求', proj['图纸深度要求'] || proj.drawingDepthRequirement || '-', pS('图纸深度要求'));
+    addRow('图纸清单', proj['图纸清单'] || proj.drawingList || '-', pS('图纸清单'));
     addRow('现场踏勘', proj['现场踏勘'] || proj.siteSurveyRequired || '-', pS('现场踏勘'));
     addRow('踏勘需要确认问题', proj['踏勘需要确认问题'] || proj.siteSurveyConfirmation || '-', pS('踏勘需要确认问题'));
     addRow('控标点', proj['控标点'] || proj.controlPoints || '-', pS('控标点'));
@@ -191,13 +193,14 @@ export async function POST(request: NextRequest) {
     addRow('正本副本', proj['正本副本'] || proj.originalCopies || '-', pS('正本副本'));
     addRow('报价文件提交标记', proj['报价文件提交标记'] || proj.bidSubmissionMarking || '-', pS('报价文件提交标记'));
     addRow('密封包装盖章要求', proj['密封包装盖章要求'] || proj.sealingRequirements || proj.packagingRequirements || proj.stampingRequirements || '-', pS('密封包装盖章要求'));
+    addRow('签字要求', proj['签字要求'] || proj.signatureRequirements || '-', pS('签字要求'));
     addRow('验收要求', proj['验收要求'] || proj.acceptanceRequirements || '-', pS('验收要求'));
 
     // ==================== Category 7: Special Rows ====================
     addSeparator('特殊行');
     const phoneQuestions = data.phoneQuestions || [];
     const risks = data.risks || [];
-    const prepTasks = data.preparationTasks || [];
+    const prepTasks = data.checklist || data.preparationTasks || [];
 
     if (isPaid) {
       if (phoneQuestions.length > 0) {

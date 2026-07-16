@@ -66,11 +66,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 管理员路径检查（简化版：只检查token存在）
-  // 完整的角色验证在API路由中通过requireAdmin执行
+  // 管理员路径检查
+  // Edge Runtime 不能使用 Prisma，所以只做 token 检查
+  // 实际的管理员权限验证在 Admin Layout 和 API Routes 中执行
   if (adminPaths.some(path => pathname.startsWith(path))) {
-    // Token存在即可进入，实际权限验证在API层
-    return NextResponse.next();
+    // 添加自定义 header，标记为管理员路径
+    // 这让 Admin Layout 知道需要检查管理员权限
+    const response = NextResponse.next();
+    response.headers.set('x-admin-path', 'true');
+    return response;
   }
 
   return NextResponse.next();

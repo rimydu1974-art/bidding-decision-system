@@ -374,6 +374,8 @@ export async function POST(request: NextRequest) {
     addRow('\u25B2\u2605\u2606\u8981\u6C42', proj['\u25B2\u2605\u2606\u8981\u6C42'] || proj.substantialRequirements || '-', pS('\u25B2\u2605\u2606\u8981\u6C42'), true);
     addRow('\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C', proj['\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C'] || proj.deviationResult || '-', pS('\u504F\u79BB\u25B2\u2605\u2606\u7684\u7ED3\u679C'), true);
     addRow('\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5', proj['\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5'] || proj.drawingsProvided || '-', pS('\u56FE\u7EB8\u63D0\u4F9B\u60C5\u51B5'));
+    addRow('\u56FE\u7EB8\u6DF1\u5EA6\u8981\u6C42', proj['\u56FE\u7EB8\u6DF1\u5EA6\u8981\u6C42'] || proj.drawingDepthRequirement || '-', pS('\u56FE\u7EB8\u6DF1\u5EA6\u8981\u6C42'));
+    addRow('\u56FE\u7EB8\u6E05\u5355', proj['\u56FE\u7EB8\u6E05\u5355'] || proj.drawingList || '-', pS('\u56FE\u7EB8\u6E05\u5355'));
     addRow('\u73B0\u573A\u8E0F\u52D8', proj['\u73B0\u573A\u8E0F\u52D8'] || proj.siteSurveyRequired || '-', pS('\u73B0\u573A\u8E0F\u52D8'));
     addRow('\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898', proj['\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898'] || proj.siteSurveyConfirmation || '-', pS('\u8E0F\u52D8\u9700\u8981\u786E\u8BA4\u95EE\u9898'));
     addRow('\u63A7\u6807\u70B9', proj['\u63A7\u6807\u70B9'] || proj.controlPoints || '-', pS('\u63A7\u6807\u70B9'));
@@ -386,13 +388,14 @@ export async function POST(request: NextRequest) {
     addRow('\u6B63\u672C\u526F\u672C', proj['\u6B63\u672C\u526F\u672C'] || proj.originalCopies || '-', pS('\u6B63\u672C\u526F\u672C'));
     addRow('\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0', proj['\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0'] || proj.bidSubmissionMarking || '-', pS('\u62A5\u4EF7\u6587\u4EF6\u63D0\u4EA4\u6807\u8BB0'));
     addRow('\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42', proj['\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42'] || proj.sealingRequirements || proj.packagingRequirements || proj.stampingRequirements || '-', pS('\u5BC6\u5C01\u5305\u88C5\u76D6\u7AE0\u8981\u6C42'));
+    addRow('\u7B7E\u5B57\u8981\u6C42', proj['\u7B7E\u5B57\u8981\u6C42'] || proj.signatureRequirements || '-', pS('\u7B7E\u5B57\u8981\u6C42'));
     addRow('\u9A8C\u6536\u8981\u6C42', proj['\u9A8C\u6536\u8981\u6C42'] || proj.acceptanceRequirements || '-', pS('\u9A8C\u6536\u8981\u6C42'));
 
     // ==================== Category 7: Special Rows ====================
     addSeparator('\u7279\u6B8A\u884C', colors.brandPurple);
     const phoneQuestions = data.phoneQuestions || [];
     const risks = data.risks || [];
-    const prepTasks = data.preparationTasks || [];
+    const prepTasks = data.checklist || data.preparationTasks || [];
 
     if (isPaid) {
       // Phone questions

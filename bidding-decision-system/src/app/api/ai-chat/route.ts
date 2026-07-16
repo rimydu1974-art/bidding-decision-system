@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { callAI } from '@/lib/ai/call-ai';
 import { validateSession, getTokenFromRequest } from '@/lib/auth';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
+import { getOrCreateUserProfile, generateProfilePrompt } from '@/lib/user-profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,10 +88,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 获取用户画像上下文
+    let userProfileContext = '';
+    try {
+      const userProfile = await getOrCreateUserProfile(user.id);
+      userProfileContext = generateProfilePrompt(userProfile);
+      if (userProfileContext) {
+        userProfileContext = '\n\n' + userProfileContext;
+      }
+    } catch (e) {
+      console.error('[AiChat] 获取用户画像失败:', e);
+    }
+
     // 构建消息
     const systemMessage = {
       role: 'system' as const,
-      content: SYSTEM_PROMPT + projectContext
+      content: SYSTEM_PROMPT + projectContext + userProfileContext
     };
 
     const apiMessages = [systemMessage, ...messages.slice(-10)]; // 只保留最近10条消息

@@ -1,115 +1,138 @@
-# ===== 依赖 =====
-node_modules/
-.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# ========================================
+# OpenCheck 开源/闭源规则 v2.1
+# 原则：闭源 = 不上传GitHub = 本地保留
+# 更新时间：2026-07-14
+# ========================================
 
-# ===== Next.js =====
+# ------ 基础设施（可开源） ------
+node_modules/
 .next/
 out/
 build/
-vercel.json
-!bidding-decision-system/vercel.json
+*.tsbuildinfo
+next-env.d.ts
+generated/
+.DS_Store
+Thumbs.db
+*.pem
+*.key
+*.cert
+.vercel
 
-# ===== 环境变量（含密钥） =====
+# ------ 环境变量（永不提交） ------
 .env
 .env.local
 .env.*.local
 
-# ===== 数据库 =====
+# ------ 数据库文件 ------
 *.db
 *.db-journal
 
-# ===== 调试 =====
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# ========================================
+# 以下为闭源文件（不上传GitHub）
+# 原则：支付/配额/定价/AI提示词/规则引擎/管理后台
+# ========================================
 
-# ===== 系统文件 =====
-.DS_Store
-*.pem
-Thumbs.db
+# ------ 平台管理后台（闭源） ------
+src/app/admin/
+src/app/api/admin/
 
-# ===== TypeScript =====
-*.tsbuildinfo
-next-env.d.ts
-generated/
+# ------ AI核心（闭源） ------
+src/lib/ai/
 
-# ===== ===== ===== 核心资产（不上传开源） ===== ===== =====
+# ------ 规则引擎（闭源） ------
+src/lib/rules/
+src/lib/rule-extractors/
 
-# ------ AI成本（配额/计费/支付） ------
+# ------ 商业逻辑（闭源） ------
 src/lib/quota.ts
 src/lib/pricing.ts
-src/lib/ai/call-ai.ts
-src/lib/file-hash.ts
 src/lib/payment.ts
 src/lib/sms.ts
 src/lib/rate-limit.ts
-src/lib/popup-trigger.ts
-src/components/popup/
-src/app/pricing/
-src/app/payment/
-src/app/api/payment/
-src/app/api/user/quota/
-
-# ------ 行为漏斗（用户行为/分析） ------
 src/lib/behavior.ts
-src/app/workspace/
-src/app/profile/
-src/app/api/history/
-src/app/api/dashboard/
-
-# ------ 行业统计 ------
-src/app/evaluation/
-src/app/thinktank/
-src/app/api/cases/
-src/app/api/regulations/
-src/app/api/knowledge/
-scripts/seed-cases-and-thinktank.ts
-scripts/import-regulations.ts
-scripts/fix-finance-regulations.js
-prisma/seed-industries.ts
-
-# ------ 数据导出（报告生成） ------
-src/app/api/report/
-src/lib/parsers/
-export_excel.py
-read_excel.py
-read_pdf.py
-read_pdf2.py
-read_docx.py
-read_tender.py
-simulate_ai.py
-simulate_ai2.py
-copy_file.py
-
-# ------ 主页面变现层 ------
-src/app/page.tsx
-
-# ------ 规则管理 ------
-prisma/seed-rules.ts
+src/lib/file-hash.ts
 src/lib/document-cleaner.ts
-src/lib/ai/prompts/
 src/lib/source-trace.ts
+src/lib/popup-trigger.ts
+src/lib/progressive-nudge.ts
+src/lib/user-profile.ts
+src/lib/parsers/
+
+# ------ 核心API（闭源） ------
 src/app/api/analyze/
 src/app/api/scoring/
+src/app/api/report/
+src/app/api/payment/
+src/app/api/projects/
+src/app/api/user/
+src/app/api/knowledge/upload/
+src/app/api/cases/
+src/app/api/history/
+src/app/api/dashboard/
+src/app/api/ai-write/
+src/app/api/ai-chat/
+src/app/api/behavior/
+src/app/api/cron/
+src/app/api/feedback/
+src/app/api/notify/
+src/app/api/thinktank/
+src/app/api/upload/
+src/app/api/pricing/
+src/app/api/assessments/
+src/app/api/api-keys/
+
+# ------ 核心页面（闭源） ------
+src/app/page.tsx
+src/app/workspace/
+src/app/profile/
+src/app/pricing/
+src/app/payment/
+src/app/evaluation/
+src/app/thinktank/
 src/app/config/
+src/app/ai-write/
+src/app/ai-chat/
+src/app/user-center/
+src/app/analyze/
+src/app/scoring/
+src/app/project/
+src/app/projects/
+src/app/tools/
+
+# ------ UI组件（闭源） ------
+src/components/popup/
 src/components/risk/
 src/components/assessment/
-src/app/api/projects/
-src/lib/rule-extractors.ts
-src/lib/rules/
 
-# ------ 新版前端独立版（完整闭源） ------
+# ------ 规则/种子数据（闭源） ------
+prisma/seed-rules.ts
+prisma/seed-industry-rules.ts
+scripts/
+
+# ------ 导入/数据脚本（闭源） ------
+import_data*.js
+import_to_*.js
+prepare_import.py
+generate_*.py
+batch_import.js
+continue_import.js
+direct_import.js
+import_cases.js
+check_db.js
+create_user.js
+test_*.js
+test_*.cjs
+payload*.json
+init-db.sql
+*.sql
+
+# ------ 新版前端独立版（闭源） ------
 backend/
 frontend/
-read_geo_docx.py
-read_geo_docx2.py
 
+# ------ 微信机器人（闭源） ------
+wechat-bot/
 
-.vercel
+# ------ 临时文件 ------
+temp_content.txt

@@ -55,6 +55,7 @@ model User {
   feedbacks       UserFeedback[]
   materials       Material[]
   caseSubmissions CaseSubmission[]
+  userProfile     UserProfile?
 }
 
 model Session {
@@ -87,6 +88,8 @@ model Assessment {
   bidDeadline           DateTime?
   bidOpeningTime        DateTime?
   queryDeadline         DateTime?
+  userDecision          String?  // "bid" / "no-bid" / "abstain"
+  userDecisionAt        DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   user                  User     @relation(fields: [userId], references: [id])
@@ -458,4 +461,41 @@ model Regulation {
   updatedAt   DateTime @updatedAt
   @@index([region])
   @@index([category])
+}
+
+// 用户DNA档案（聚合后的画像数据）
+model UserProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+
+  // 行业偏好
+  preferredIndustries String   @default("[]")  // JSON: [{industry, count, ratio}]
+  strongProjectTypes  String   @default("[]")  // JSON: [{type, count}]
+
+  // 决策统计
+  totalAssessments    Int      @default(0)
+  totalBids           Int      @default(0)    // userDecision="bid"
+  totalWins           Int      @default(0)    // 中标次数（用户自报）
+  totalDecisions      Int      @default(0)    // 有决策记录的分析数
+
+  // AI建议采纳
+  aiSuggestionFollowRate Float @default(0)    // 采纳率 0-1
+  totalSuggestions    Int      @default(0)
+  followedSuggestions Int      @default(0)
+
+  // 风险偏好
+  riskTolerance       String   @default("moderate") // conservative/moderate/aggressive
+
+  // 报价风格
+  avgBidRatio         Float    @default(0)    // 平均报价/预算比
+  bidRatioRange       String   @default("{}") // JSON: {min, max}
+
+  // 活跃度
+  analysisStreak      Int      @default(0)    // 连续分析天数
+  lastAnalysisAt      DateTime?
+  profileVersion      Int      @default(0)    // 画像版本号
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id])
 }

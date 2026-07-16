@@ -13,6 +13,7 @@ import {
   EyeOff,
   Save,
   Crown,
+  Dna,
 } from 'lucide-react';
 
 interface QuotaInfo {
@@ -45,16 +46,38 @@ const API_PROVIDERS = [
   { id: 'gemini', name: 'Gemini', placeholder: 'sk-', baseUrl: 'https://generativelanguage.googleapis.com' },
 ];
 
+interface UserProfile {
+  id: string;
+  userId: string;
+  preferredIndustries: Array<{ industry: string; count: number; ratio: number }>;
+  strongProjectTypes: Array<{ type: string; count: number }>;
+  totalAssessments: number;
+  totalBids: number;
+  totalWins: number;
+  totalDecisions: number;
+  aiSuggestionFollowRate: number;
+  totalSuggestions: number;
+  followedSuggestions: number;
+  riskTolerance: string;
+  avgBidRatio: number;
+  bidRatioRange: { min: number; max: number };
+  analysisStreak: number;
+  lastAnalysisAt: string | null;
+  profileVersion: number;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'api-key'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'api-key' | 'dna'>('overview');
   const [userApiKey, setUserApiKey] = useState('');
   const [userApiProvider, setUserApiProvider] = useState('deepseek');
   const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/user/quota')
@@ -70,6 +93,22 @@ export default function ProfilePage() {
         setLoading(false);
       });
   }, []);
+
+  // 获取用户画像
+  useEffect(() => {
+    if (activeTab === 'dna') {
+      setProfileLoading(true);
+      fetch('/api/user/profile')
+        .then((res) => res.json())
+        .then((data) => {
+          setUserProfile(data.profile);
+          setProfileLoading(false);
+        })
+        .catch(() => {
+          setProfileLoading(false);
+        });
+    }
+  }, [activeTab]);
 
   const handleSaveApiKey = async () => {
     setSaving(true);
@@ -146,6 +185,16 @@ export default function ProfilePage() {
               }`}
             >
               API Key
+            </button>
+            <button
+              onClick={() => setActiveTab('dna')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'dna'
+                  ? 'bg-[#7c3aed] text-white'
+                  : 'text-[#6b7280] hover:text-white'
+              }`}
+            >
+              🧠 投标DNA
             </button>
           </div>
 
@@ -313,6 +362,131 @@ export default function ProfilePage() {
                     API Key仅保存在您的账户中，用于直接调用AI服务。
                   </p>
                 </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'dna' && (
+            <div className="space-y-6">
+              {profileLoading ? (
+                <div className="glass-card p-8 text-center">
+                  <div className="w-8 h-8 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-[#6b7280] mt-4">加载用户画像...</p>
+                </div>
+              ) : !userProfile || userProfile.totalAssessments === 0 ? (
+                <div className="glass-card p-8 text-center">
+                  <Dna className="w-12 h-12 text-[#6b7280] mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">投标DNA正在形成</h3>
+                  <p className="text-[#6b7280]">
+                    完成至少一次AI分析后，系统将自动为您生成专属的投标画像。
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* 核心统计 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="glass-card p-4">
+                      <p className="text-sm text-[#6b7280]">累计分析</p>
+                      <p className="text-2xl font-bold text-white">{userProfile.totalAssessments}</p>
+                    </div>
+                    <div className="glass-card p-4">
+                      <p className="text-sm text-[#6b7280]">实际投标</p>
+                      <p className="text-2xl font-bold text-white">{userProfile.totalBids}</p>
+                    </div>
+                    <div className="glass-card p-4">
+                      <p className="text-sm text-[#6b7280]">连续分析</p>
+                      <p className="text-2xl font-bold text-white">{userProfile.analysisStreak}天 🔥</p>
+                    </div>
+                    <div className="glass-card p-4">
+                      <p className="text-sm text-[#6b7280]">决策记录</p>
+                      <p className="text-2xl font-bold text-white">{userProfile.totalDecisions}</p>
+                    </div>
+                  </div>
+
+                  {/* 行业偏好 */}
+                  {userProfile.preferredIndustries.length > 0 && (
+                    <div className="glass-card p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">行业偏好</h3>
+                      <div className="space-y-3">
+                        {userProfile.preferredIndustries.slice(0, 5).map((item, index) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-white">{item.industry}</span>
+                                <span className="text-xs text-[#6b7280]">{item.count}次</span>
+                              </div>
+                              <div className="w-full bg-[#1e1e2e] rounded-full h-2">
+                                <div
+                                  className="bg-[#7c3aed] h-2 rounded-full"
+                                  style={{ width: `${item.ratio * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 风险偏好 & 报价风格 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="glass-card p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">风险偏好</h3>
+                      <div className="flex items-center gap-3">
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          userProfile.riskTolerance === 'aggressive'
+                            ? 'bg-red-500/20 text-red-400'
+                            : userProfile.riskTolerance === 'moderate'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-green-500/20 text-green-400'
+                        }`}>
+                          {userProfile.riskTolerance === 'aggressive'
+                            ? '偏激进'
+                            : userProfile.riskTolerance === 'moderate'
+                              ? '中等'
+                              : '偏保守'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass-card p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">报价风格</h3>
+                      <div className="space-y-2">
+                        <p className="text-sm text-[#6b7280]">
+                          平均报价/预算：<span className="text-white font-medium">{Math.round(userProfile.avgBidRatio * 100)}%</span>
+                        </p>
+                        {userProfile.bidRatioRange?.min && (
+                          <p className="text-sm text-[#6b7280]">
+                            报价区间：<span className="text-white font-medium">{Math.round(userProfile.bidRatioRange.min * 100)}% - {Math.round(userProfile.bidRatioRange.max * 100)}%</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 清除画像按钮 */}
+                  <div className="glass-card p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">数据管理</h3>
+                        <p className="text-sm text-[#6b7280]">
+                          清除画像后，系统将重新学习您的投标模式
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (confirm('确定要清除您的投标画像吗？')) {
+                            await fetch('/api/user/profile', { method: 'DELETE' });
+                            setUserProfile(null);
+                          }
+                        }}
+                        className="px-4 py-2 text-sm text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
+                      >
+                        清除画像
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}

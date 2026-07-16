@@ -1,13 +1,20 @@
 import prisma from '@/lib/db';
 
 export type BehaviorAction =
+  // 转化漏斗
   | 'register'
   | 'login'
   | 'upload'
   | 'analyze'
   | 'view_result'
   | 'click_pay'
-  | 'pay_success';
+  | 'pay_success'
+  // 留存漏斗（记忆层）
+  | 'record_decision'
+  | 'view_profile'
+  | 'retrospective_match'
+  | 'repeat_analysis'
+  | 'profile_generated';
 
 interface TrackParams {
   userId: string;
