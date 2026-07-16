@@ -233,13 +233,19 @@ export async function POST(request: NextRequest) {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Set column widths
+    // Set column widths - wider for better readability
     ws['!cols'] = [
       { wch: 6 },   // 编号
       { wch: 22 },  // 字段名称
-      { wch: 60 },  // 项目数据
-      { wch: 40 },  // 来源定位
+      { wch: 100 }, // 项目数据（大幅增加宽度）
+      { wch: 50 },  // 来源定位
     ];
+
+    // Set default row height
+    ws['!rows'] = ws['!rows'] || [];
+    for (let i = 0; i < wsData.length; i++) {
+      ws['!rows'][i] = { hpt: 30 }; // 30 points height for better readability
+    }
 
     // Merge separator rows
     let mergeRanges: any[] = [];
